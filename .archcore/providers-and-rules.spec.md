@@ -61,4 +61,5 @@ tags:
 Измерение задержки поставщика отделено от времени обработки приложения; отсутствие source timestamp не позволяет заявить измеренный release lag.
 
 MQL5 listing MAY использовать reference_period=unknown только с vendor release ID; дата релиза не заменяет период статистики.
+MQL5 расширен сериями PPI/Core PPI MoM/YoY, retail MoM/ex-autos MoM, initial jobless claims и ISM manufacturing/services PMI. Claims хранят количество людей, PMI — уровень индекса; процентные изменения не подменяют эти единицы. Source mapping и первичные ссылки находятся в @docs/sources.md, правила — в @config.live.yaml.
 Публичные API проверены реальными read-only fetch; платные и trading endpoints не используются.

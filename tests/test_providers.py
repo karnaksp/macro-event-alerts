@@ -68,6 +68,61 @@ def test_mql5_opt_in_checked_before_network(monkeypatch):
     assert calls == []
 
 
+def synthetic_mql5_row(slug, actual, forecast, previous):
+    """Only the declared web-calendar shape; no production row copied into new fixtures."""
+    scheduled = datetime(2026, 10, 29, 12, 30, tzinfo=timezone.utc)
+    return {
+        "Id": 700001, "CurrencyCode": "USD", "Country": 840,
+        "Url": "/en/economic-calendar/united-states/" + slug,
+        "EventName": "Synthetic expansion indicator", "TimeMode": 0,
+        "FullDate": scheduled.isoformat(), "ReleaseDate": int(scheduled.timestamp()) * 1000,
+        "ActualValue": actual, "ForecastValue": forecast, "PreviousValue": previous,
+        "Processed": 1 if actual else 0,
+    }
+
+
+@pytest.mark.parametrize("slug,series,frequency,unit,actual,forecast,previous,expected", [
+    ("producer-price-index-mm", "US.PPI.HEADLINE.MOM", "monthly", "percent", "-0.2%", "0.1%", "0.0%", ("-0.2", "0.1", "0")),
+    ("producer-price-index-yy", "US.PPI.HEADLINE.YOY", "monthly", "percent", "2.1%", "2.2%", "2.0%", ("2.1", "2.2", "2")),
+    ("producer-price-index-ex-food-energy-mm", "US.PPI.CORE.MOM", "monthly", "percent", "0.0%", "0.1%", "0.2%", ("0", "0.1", "0.2")),
+    ("producer-price-index-ex-food-energy-yy", "US.PPI.CORE.YOY", "monthly", "percent", "2.4%", "2.5%", "2.3%", ("2.4", "2.5", "2.3")),
+    ("retail-sales-mm", "US.RETAIL.HEADLINE.MOM", "monthly", "percent", "0.4%", "0.3%", "0.2%", ("0.4", "0.3", "0.2")),
+    ("retail-sales-ex-autos-mm", "US.RETAIL.EX_AUTOS.MOM", "monthly", "percent", "0.3%", "0.2%", "0.1%", ("0.3", "0.2", "0.1")),
+    ("initial-jobless-claims", "US.JOBLESS.INITIAL.CLAIMS", "weekly", "persons", "210\u00a0K", "205 K", "0.2 M", ("210000", "205000", "200000")),
+    ("ism-manufacturing-pmi", "US.ISM.MANUFACTURING.PMI", "monthly", "index", "49.8", "50.1", "49.5", ("49.8", "50.1", "49.5")),
+    ("ism-non-manufacturing-pmi", "US.ISM.SERVICES.PMI", "monthly", "index", "52.4", "52.1", "51.8", ("52.4", "52.1", "51.8")),
+])
+def test_expanded_mql5_series_keep_exact_units_frequency_and_values(monkeypatch, slug, series, frequency, unit, actual, forecast, previous, expected):
+    mock_response(monkeypatch, [synthetic_mql5_row(slug, actual, forecast, previous)])
+    batch = providers.fetch("mql5", settings("mql5_web"), now=NOW)
+    assert len(batch.envelopes) == 1
+    assert_contracts(batch)
+    item = batch.envelopes[0]["observation"]
+    assert item["subject"]["series_id"] == series
+    assert item["subject"]["frequency"] == frequency
+    assert item["subject"]["unit"] == unit
+    assert item["subject"]["scale"] == "units"
+    assert item["subject"]["reference_period"] == "unknown"
+    assert tuple(item["values"][key] for key in ("actual", "forecast", "previous")) == expected
+    assert item["source"]["source_url"] == "https://www.mql5.com/en/economic-calendar/united-states/" + slug
+
+
+def test_expanded_mql5_scheduled_claims_keep_forecast_without_inventing_actual(monkeypatch):
+    mock_response(monkeypatch, [synthetic_mql5_row("initial-jobless-claims", "", "210 K", "205 K")])
+    batch = providers.fetch("mql5", settings("mql5_web"), now=NOW)
+    assert_contracts(batch)
+    assert len(batch.envelopes) == 1
+    item = batch.envelopes[0]["observation"]
+    assert item["values"]["publication_status"] == "scheduled"
+    assert item["values"]["actual"] is None
+    assert item["values"]["forecast"] == "210000"
+
+
+def test_retail_ex_autos_does_not_substitute_ex_autos_and_gas(monkeypatch):
+    mock_response(monkeypatch, [synthetic_mql5_row("retail-sales-ex-autos-gas-mm", "0.2%", "0.1%", "0.3%")])
+    assert providers.fetch("mql5", settings("mql5_web"), now=NOW).envelopes == []
+
+
 @pytest.mark.parametrize("patch", [
     {"ActualValue": "not-a-number"},
     {"ActualValue": "0.3"},  # MQL5 percent measurements require its explicit % basis.

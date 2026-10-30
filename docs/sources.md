@@ -33,3 +33,19 @@ Forecast origin хранится как `consensus`, `model`, `official_projecti
 Все JSON в `examples/` синтетические; они не являются текущими результатами статистики или котировками.
 
 Проверка live от 30 октября 2026: 6 XOOMAR, 13 MQL5, 1 Polymarket observation прошли canonical validation внутри контейнера. MQL5 listing не сообщает period: хранится `unknown` и стабильный vendor release ID. Полный отчёт — `docs/live-verification.md`.
+
+
+## Расширение покрытия MQL5
+
+Проверено 30 октября 2026 по страницам самого источника. Добавлены 9 серий; вместе с прежними это 22 MQL5-серии и отдельный XOOMAR midpoint ставки ФРС — всего 23 ряда.
+
+| Ряд | Проверенные страницы MQL5 | Единицы |
+| --- | --- | --- |
+| PPI | [m/m](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-mm), [y/y](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-yy) | %; месяц/год отдельно |
+| Core PPI без еды и энергии | [m/m](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-ex-food-energy-mm), [y/y](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-ex-food-energy-yy) | %; месяц/год отдельно |
+| Розничные продажи | [m/m](https://www.mql5.com/en/economic-calendar/united-states/retail-sales-mm), [без автомобилей](https://www.mql5.com/en/economic-calendar/united-states/retail-sales-ex-autos-mm) | % за месяц; ex-autos не равен ex-autos-and-gas |
+| Первичные заявки на пособие | [Initial Jobless Claims](https://www.mql5.com/en/economic-calendar/united-states/initial-jobless-claims) | Люди, еженедельно; K/M преобразуются в units |
+| ISM Manufacturing PMI | [Промышленность](https://www.mql5.com/en/economic-calendar/united-states/ism-manufacturing-pmi) | Уровень индекса, ежемесячно |
+| ISM Non-Manufacturing PMI | [Услуги](https://www.mql5.com/en/economic-calendar/united-states/ism-non-manufacturing-pmi) | Уровень индекса, ежемесячно |
+
+Для всех новых рядов включены release/revision и forecast-change правила MQL5. Synthetic fixtures проверяют mapping и единицы; текущий календарь может содержать не все последние факты одновременно. Исторические наблюдения сохраняются с is_backfill=true без изменения live baseline и очереди, но доступны ручной сводке. Неизвестные периоды MQL5 не восстанавливаются по дате релиза.

@@ -4,7 +4,7 @@
 
 ## Выполнено
 
-- `uv run --locked pytest -q`: **172 passed**. Включены fake Telegram, HTML templates/escaping, outcome labels, API mapping fixtures, durable retry/restart, quotas и v1→v2 migration.
+- `uv run --locked pytest -q`: **196 passed**. Включены fake Telegram, HTML templates/escaping, outcome labels, API mapping fixtures, durable retry/restart, quotas и v1→v2 migration.
 - Contract validator: 4 schemas, 6 positive fixtures, 1 config, 23 negative cases — PASS.
 - Одна Alpine-сборка и один offline smoke container: два replay-процесса сохранили те же 7 event IDs, checkpoint и 6 dry-run jobs.
 - `docker compose up --no-build -d alerts`: запущен проверенный image, отдельный live volume.
@@ -22,8 +22,8 @@
 | Версия | Размер Docker image |
 | --- | ---: |
 | P1 Python slim + format extras | 223 313 483 байт |
-| Live Alpine + только нужные зависимости | 86 537 736 байт |
-| Снижение | 61,25% |
+| Live Alpine + только нужные зависимости | 86 553 071 байт |
+| Снижение | 61,24% |
 
 Это локальный uncompressed image size для Linux arm64. Кросс-платформенные musl wheels подтверждены; GitHub CI выполняет свой smoke на Ubuntu runner. Размер compressed registry layers отличается.
 
@@ -38,3 +38,14 @@
 MQL5 web экспериментален; reference period отсутствует в listing и не выводится из даты релиза. XOOMAR не предоставляет consensus. Polymarket использует настоящий book timestamp, midpoint и market-aggregate liquidity; цена исхода не является опросом трейдеров. Платные источники и торговые ключи не используются.
 
 Telegram имеет at-least-once semantics: network timeout может дать повтор сообщения после восстановления. Старые chat/topic jobs сохраняются без перенаправления. Dead-letter учитывается и сохраняется, но отдельного operator CLI для retry пока нет.
+
+
+## Расширенная сводка и новые показатели
+
+- Добавлены 9 MQL5-серий: headline/core PPI MoM/YoY, retail/headline и ex-autos MoM, initial claims, ISM manufacturing/services. Соответствие единиц и названий проверено по первичным страницам MQL5, ссылки — в docs/sources.md. Release/revision и forecast-change правила включены.
+- Лимит сводки в 3 значения удалён. Опубликованные результаты/котировки и ещё не опубликованные выпуски выбираются отдельно; источник каждой строки сохраняется целиком, без заимствования forecast/previous из другого наблюдения.
+- Одноразовый read-only API запрос MQL5 за 31 день назад/0 вперёд вернул 29 исторических фактов по 21 серии. Единственный запрос предварительно учтён в существующем daily budget. Импорт выполнен в остановленном worker с существующим volume, без Telegram credentials, через _ingest(is_backfill=true).
+- Проверены инварианты импорта: live subject_state, events, outbox, subscriptions и polling checkpoints не изменились; после импорта worker запущен снова. Ручная сводка читает latest backfill отдельно от live baseline.
+- В момент проверки в базе были все 23 поддерживаемые макросерии, по 22 — опубликованные факты; все 9 новых рядов присутствовали. Quarantine=0, live health healthy=true.
+- Сводка доставлена в 3 частях: message2505 обновлён, message2538/2539 отправлены с паузой 3 секунды. API подтвердил delivered, HTML entities и отключённые previews для каждой части. Длины в момент проверки: 3764/2550/3590 UTF-16 units, каждая меньше4096.
+- Новые tests проверяют отображение более3рядов, отдельный будущий forecast без потери прошлого actual, нулевые значения, исключение cancelled, целые HTML-блоки/пагинацию, latest backfill без изменений baseline, остановку ручной отправки при ошибке, PMI в пунктах и claims в людях.

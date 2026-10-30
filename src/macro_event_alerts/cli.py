@@ -8,24 +8,34 @@ import signal
 import sqlite3
 import sys
 import threading
+from time import sleep
 from pathlib import Path
 
 from .app import replay_file
 from .config import load_config, telegram_environment
 from .live import LiveWorker
-from .render import render_snapshot
+from .render import render_snapshot_messages
 from .storage import Store, inspect_state, health_state
 from .telegram import TelegramSender
 from .validation import ContractError
 
 
-def snapshot_text(config: dict) -> str:
-    """One explicitly requested operational test, visibly different from new releases."""
+def snapshot_messages(config: dict) -> list[str]:
+    """An explicitly requested saved-data digest, visibly different from new releases."""
     uri = Path(config["service"]["state_path"]).resolve().as_uri() + "?mode=ro"
     with sqlite3.connect(uri, uri=True) as conn:
-        rows = conn.execute("""SELECT o.body_json FROM subject_state s JOIN observations o ON o.observation_id=s.observation_id
-            ORDER BY o.observed_at DESC,o.rowid DESC LIMIT 100""").fetchall()
-    return render_snapshot([json.loads(row[0]) for row in rows], dry_run=config["telegram"]["dry_run"])
+        rows = conn.execute("""WITH backfill AS (
+            SELECT body_json,observed_at,rowid AS observation_rowid,
+                row_number() OVER (PARTITION BY subject_key ORDER BY observed_at DESC,rowid DESC) AS rank
+            FROM observations WHERE accepted=0
+        )
+        SELECT body_json FROM (
+            SELECT o.body_json,o.observed_at,o.rowid AS observation_rowid
+            FROM subject_state s JOIN observations o ON o.observation_id=s.observation_id
+            UNION ALL
+            SELECT body_json,observed_at,observation_rowid FROM backfill WHERE rank=1
+        ) ORDER BY observed_at DESC,observation_rowid DESC""").fetchall()
+    return render_snapshot_messages([json.loads(row[0]) for row in rows], dry_run=config["telegram"]["dry_run"])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,9 +75,16 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "telegram-check" or not checked["ok"]:
                 print(json.dumps(checked))
                 return 0 if checked["ok"] else 2
-            result = sender.send(snapshot_text(config), parse_mode="HTML")
-            print(json.dumps({"status": result.status, "message_id": result.message_id, "error_code": result.error_code}))
-            return 0 if result.status == "delivered" else 2
+            messages = snapshot_messages(config)
+            for page, message in enumerate(messages, start=1):
+                if page > 1:
+                    sleep(3)
+                result = sender.send(message, parse_mode="HTML")
+                print(json.dumps({"page": page, "pages": len(messages), "status": result.status,
+                                  "message_id": result.message_id, "error_code": result.error_code}))
+                if result.status != "delivered":
+                    return 2
+            return 0
         if args.command == "replay":
             if args.interval <= 0 or (args.stop_after is not None and args.stop_after < 0):
                 raise ValueError("interval must be positive and stop-after nonnegative")

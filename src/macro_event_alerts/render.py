@@ -24,6 +24,15 @@ SERIES_LABELS = {
     "US.ECI.QOQ": "Стоимость труда в США (ECI) · кв/кв",
     "US.FED.TARGET.MIDPOINT": "Ставка ФРС · середина диапазона",
     "US.FED.TARGET.UPPER": "Ставка ФРС · верхняя граница",
+    "US.PPI.HEADLINE.MOM": "Цены производителей PPI США · месяц к месяцу",
+    "US.PPI.HEADLINE.YOY": "Цены производителей PPI США · год к году",
+    "US.PPI.CORE.MOM": "Базовый PPI США · месяц к месяцу",
+    "US.PPI.CORE.YOY": "Базовый PPI США · год к году",
+    "US.RETAIL.HEADLINE.MOM": "Розничные продажи США · месяц к месяцу",
+    "US.RETAIL.EX_AUTOS.MOM": "Продажи США без автомобилей · месяц к месяцу",
+    "US.JOBLESS.INITIAL.CLAIMS": "Первичные заявки на пособие в США",
+    "US.ISM.MANUFACTURING.PMI": "ISM США · промышленность",
+    "US.ISM.SERVICES.PMI": "ISM США · услуги",
 }
 MONTHS = ("январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь")
 FORECAST_LABELS = {"consensus": "Консенсус", "model": "Модельный прогноз", "official_projection": "Официальный прогноз", "unknown": "Прогноз источника"}
@@ -131,32 +140,123 @@ def render(event: dict, context: dict, *, dry_run: bool = True) -> str:
     return "\n".join(lines)
 
 
-def render_snapshot(observations: list[dict], *, at=None, dry_run=False) -> str:
-    """Manual connection check with up to three saved results, never a release alert."""
-    lines = ["✅ <b>Подключение проверено</b>", "Бот может отправлять сообщения в этот чат.", "", "<b>Последние значения из календаря</b>"]
-    if dry_run:
-        lines = ["🧪 <b>Тест · синтетические данные</b>", "", "<b>Сохранённые значения</b>"]
-    published = [item for item in observations if item["subject"]["kind"] == "macro" and item["values"]["actual"] is not None]
-    published.sort(key=lambda item: (item["values"].get("scheduled_at") or "", item["subject"]["reference_period"] != "unknown", item["observed_at"]), reverse=True)
-    selected, seen = [], set()
-    for item in published:
-        series = item["subject"]["series_id"]
-        if series not in seen:
-            selected.append(item)
-            seen.add(series)
-        if len(selected) == 3:
-            break
-    for item in selected:
-        subject, values = item["subject"], item["values"]
-        lines.extend(["", macro_label(subject), f"<b>{value_text(values['actual'], subject)}</b> · {source_link(item['source'])}"])
-        if subject["reference_period"] != "unknown":
-            lines.append("Период: " + period_text(subject["reference_period"]))
-        release_time = values.get("published_at") or values.get("scheduled_at")
-        if release_time:
-            lines.append(("Опубликовано: " if values.get("published_at") else "По календарю: ") + date_text(release_time))
-    if not selected:
-        lines.extend(["", "Опубликованных значений пока нет."])
-    if any(item["subject"]["reference_period"] == "unknown" for item in selected):
-        lines.extend(["", "Отчётные периоды не указаны источником для части значений."])
-    lines.extend(["", "<i>Контрольный снимок сохранённых данных, не новый релиз.</i>", "Снимок на " + date_text(at or datetime.now(timezone.utc))])
+
+def _snapshot_group(subject: dict) -> str:
+    series = subject["series_id"]
+    if series.startswith(("US.CPI.", "US.PCE.", "US.PPI.")):
+        return "Инфляция"
+    if series in {"US.NFP.CHANGE", "US.UNEMPLOYMENT.RATE", "US.ECI.QOQ", "US.JOBLESS.INITIAL.CLAIMS"}:
+        return "Рынок труда"
+    if series.startswith(("US.GDP.", "US.RETAIL.", "US.ISM.")):
+        return "Экономический рост"
+    if series.startswith("US.FED."):
+        return "Ставка ФРС"
+    return "Другие показатели"
+
+
+def _snapshot_rank(item: dict, now: datetime, published: bool) -> tuple:
+    values, subject = item["values"], item["subject"]
+    date = values.get("scheduled_at") or values.get("published_at")
+    if not date:
+        order = (2, 0)
+    else:
+        when = instant(date).timestamp()
+        order = (0, -when) if published else ((0, when) if instant(date) >= now else (1, -when))
+    # Choose one complete source observation. Never borrow its missing fields
+    # from another provider, release or reporting period.
+    return (*order, -int(values.get("forecast") is not None), -int(values.get("previous") is not None),
+            -int(subject["reference_period"] != "unknown"), -instant(item["observed_at"]).timestamp(),
+            item["source"]["provider_id"], item["observation_id"])
+
+
+def _snapshot_macro_block(item: dict, *, published: bool) -> str:
+    subject, values = item["subject"], item["values"]
+    fields = []
+    if published:
+        fields.append("Факт: <b>" + value_text(values["actual"], subject) + "</b>")
+    fields.append(FORECAST_LABELS[values["forecast_origin"]] + ": " + value_text(values["forecast"], subject))
+    previous_period = values.get("previous_reference_period")
+    previous_label = "Предыдущее" + (f" ({period_text(previous_period)})" if previous_period and previous_period != "unknown" else "")
+    fields.append(previous_label + ": " + value_text(values["previous"], subject))
+    lines = [f"<b>{macro_label(subject)}</b> · {source_link(item['source'])}", " · ".join(fields)]
+    if subject["reference_period"] != "unknown":
+        lines.append("Период: " + period_text(subject["reference_period"]))
+    release_time = values.get("published_at") or values.get("scheduled_at")
+    if release_time:
+        lines.append(("Опубликовано: " if values.get("published_at") else "По календарю: ") + date_text(release_time))
     return "\n".join(lines)
+
+
+def _snapshot_chunks(title: str, blocks: list[tuple[str, str]], footer: str) -> list[str]:
+    """Split between whole records, keeping HTML and every selected value intact."""
+    chunks, current, previous_group = [], [], None
+    for group, block in blocks:
+        addition = ([f"<b>{text(group)}</b>"] if group != previous_group else []) + [block]
+        candidate = "\n\n".join([title, *current, *addition, footer])
+        if current and len(candidate.encode("utf-16-le")) // 2 > 3900:
+            chunks.append("\n\n".join([title, *current, footer]))
+            current = []
+            addition = [f"<b>{text(group)}</b>", block]
+        current.extend(addition)
+        previous_group = group
+    if current:
+        chunks.append("\n\n".join([title, *current, footer]))
+    return chunks
+
+
+def render_snapshot_messages(observations: list[dict], *, at=None, dry_run=False) -> list[str]:
+    """All saved macro coverage and quotes, with pending releases kept separate."""
+    now = instant(at) if isinstance(at, str) else at or datetime.now(timezone.utc)
+    published, calendar, scenarios = {}, {}, {}
+    for item in observations:
+        subject, values = item["subject"], item["values"]
+        if subject["kind"] == "macro":
+            if values["publication_status"] == "cancelled":
+                continue
+            is_published = values["actual"] is not None
+            selected = published if is_published else calendar
+            key = subject["series_id"]
+            if key not in selected or _snapshot_rank(item, now, is_published) < _snapshot_rank(selected[key], now, is_published):
+                selected[key] = item
+        else:
+            key = (item["source"]["provider_id"], subject["contract_id"], subject["outcome_id"],
+                   subject["horizon_at"], subject["resolution_hash"], subject["price_basis"])
+            if key not in scenarios or item["observed_at"] > scenarios[key]["observed_at"]:
+                scenarios[key] = item
+    footer = "<i>Снимок сохранённых данных, не новый релиз.</i>\nНа " + date_text(now)
+    period_note = "\nГде отчётный период не указан, источник его не сообщает."
+    marker = "🧪 Тест · синтетические данные" if dry_run else "📊 Макросводка США"
+    messages = []
+    if published or scenarios:
+        blocks = []
+        group_order = {"Инфляция": 0, "Рынок труда": 1, "Экономический рост": 2, "Ставка ФРС": 3, "Другие показатели": 4}
+        for item in sorted(published.values(), key=lambda item: (group_order[_snapshot_group(item["subject"])], item["subject"]["series_id"])):
+            blocks.append((_snapshot_group(item["subject"]), _snapshot_macro_block(item, published=True)))
+        for key, item in sorted(scenarios.items()):
+            subject, values = item["subject"], item["values"]
+            outcome = subject.get("outcome_label") or subject["outcome_id"]
+            outcome = {"yes": "Да", "no": "Нет"}.get(outcome.casefold(), outcome)
+            basis = {"midpoint": "середина спреда", "last_trade": "последняя сделка", "provider_probability": "оценка источника"}[subject["price_basis"]]
+            lines = [f"<b>{text(subject['label'])}</b> · {source_link(item['source'])}",
+                     f"Цена исхода «{text(outcome, 100)}»: <b>{number(Decimal(values['probability']) * 100)}%</b> ({basis})",
+                     "Котировка: " + date_text(values["sample_at"]), "Срок сценария: " + date_text(subject["horizon_at"])]
+            if values["market_status"] != "open":
+                lines.append("Рынок закрыт" if values["market_status"] == "closed" else "Результат сценария определён")
+            blocks.append(("Рыночный сценарий", "\n".join(lines)))
+        section_footer = footer + (period_note if any(item["subject"]["reference_period"] == "unknown" for item in published.values()) else "")
+        messages.extend(_snapshot_chunks(f"<b>{marker}</b>\nОпубликованные значения и сохранённые котировки", blocks, section_footer))
+    if calendar:
+        blocks = []
+        ordered = sorted(calendar.values(), key=lambda item: (item["values"].get("scheduled_at") or "9999", item["subject"]["series_id"]))
+        for item in ordered:
+            scheduled = item["values"].get("scheduled_at")
+            group = date_text(scheduled).split(" · ")[0] if scheduled else "Дата не указана"
+            blocks.append((group, _snapshot_macro_block(item, published=False)))
+        title = f"<b>{marker} · календарь</b>\nРезультаты ещё не опубликованы. Ниже — прогнозы источников и прошлые значения."
+        section_footer = footer + (period_note if any(item["subject"]["reference_period"] == "unknown" for item in calendar.values()) else "")
+        messages.extend(_snapshot_chunks(title, blocks, section_footer))
+    if not messages:
+        messages = [f"<b>{marker}</b>\nСохранённых данных пока нет.\n\n{footer}"]
+    if len(messages) > 1:
+        messages = [message.replace("</b>", f" · {index}/{len(messages)}</b>", 1) for index, message in enumerate(messages, 1)]
+    return messages
