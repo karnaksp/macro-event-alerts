@@ -1,82 +1,88 @@
 # Macro Event Alerts
 
-[![Contracts](https://github.com/karnaksp/macro-event-alerts/actions/workflows/contracts.yml/badge.svg)](https://github.com/karnaksp/macro-event-alerts/actions/workflows/contracts.yml)
-[![Runtime](https://github.com/karnaksp/macro-event-alerts/actions/workflows/runtime.yml/badge.svg)](https://github.com/karnaksp/macro-event-alerts/actions/workflows/runtime.yml)
+[![CI](https://github.com/karnaksp/macro-event-alerts/actions/workflows/ci.yml/badge.svg)](https://github.com/karnaksp/macro-event-alerts/actions/workflows/ci.yml)
 
-Самостоятельно размещаемый сервис алертов по макростатистике и рыночным оценкам сценариев в Telegram. Open source, Apache 2.0.
+Самостоятельно размещаемый сервис алертов по макростатистике и рыночным оценкам сценариев в Telegram. Python, SQLite, один Docker-контейнер; Apache 2.0.
 
-**P1 реализован:** offline replay → проверка контрактов → SQLite → события → правила → сохранённая очередь → dry-run. Docker собирается и запускается. Все демо-данные синтетические. Live API-адаптеры и отправка сообщений в Telegram относятся к следующим этапам и ещё не реализованы.
+**Работает live:** XOOMAR, экспериментальный MQL5 web и публичный Polymarket → наблюдения по JSON Schema → detector → правила → сохранённая очередь → Telegram. Offline replay доступен отдельно. Торговых операций и платных подписок нет.
 
-## Запустить Docker
+## Запуск
 
-Нужны Docker Engine с Compose. Токен бота и API-ключи для P1 не требуются.
-
-```bash
-docker compose up --build -d
-docker compose logs replay
-```
-
-Первый запуск обрабатывает 12 наблюдений, сохраняет 7 доменных событий и 6 сообщений dry-run. Сервис остаётся запущенным, проверяет fixture каждые 30 секунд и продолжает с сохранённого checkpoint. Повторный запуск не создаёт новые события или сообщения.
+Для новой установки создайте локальный `.env` по `.env.example` и задайте `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, при необходимости `TELEGRAM_MESSAGE_THREAD_ID`. Добавьте бота в чат с правом отправки сообщений; в канале потребуется право публикации. Реальные реквизиты не входят в Git/образ.
 
 ```bash
-docker compose run --rm replay status --state /data/state.db
-docker compose run --rm replay health --state /data/state.db
-docker compose stop
+docker compose up --build -d alerts
+docker compose logs -f alerts
 ```
 
-Compose сохраняет SQLite в именованном volume. `stop` и `down` сохраняют данные; удаление volume удаляет историю, checkpoint и очередь. Одновременно один worker может владеть этим state path; `status`/`health` читают его без блокировки worker.
-
-Для одноразового replay остановите фоновый worker, затем выполните:
+Если проверенный образ уже собран, достаточно `docker compose up -d alerts` без повторной сборки. Настройки источников и правил находятся в [`config.live.yaml`](config.live.yaml), примонтированном read-only. После изменения конфигурации перезапустите `alerts`; после изменения `.env` пересоздайте контейнер.
 
 ```bash
-docker compose run --rm replay replay --config /app/config.replay.yaml --fixture /app/examples/replay/demo.jsonl
+docker compose exec -T alerts macro-event-alerts health --state /data/state.db
+docker compose exec -T alerts macro-event-alerts status --state /data/state.db
+docker compose stop alerts
 ```
 
-`dry_run` означает подготовку сообщения с записью в очередь и выводом JSON в stdout; это отдельный статус, не подтверждение доставки Telegram. Контейнер P1 работает без сети, без root, с read-only filesystem и writable `/data`. `.env` исключён из build context и не передаётся в контейнер.
+SQLite сохраняется в volume `live-state`; остановка/пересоздание контейнера сохраняет baseline, бюджеты API и очередь. Первый снимок каждого выпуска формирует baseline без рассылки истории. Дальше алерты появляются при новых фактах и изменениях. Один worker владеет state path; health/status читают базу без блокировки worker.
 
-## Какие события работают в replay
+## Включённые источники и правила
 
-| Событие | Поведение |
-| --- | --- |
-| `macro.release` | Первое actual известного выпуска; факт, прогноз и previous хранятся раздельно |
-| `macro.forecast_changed` | Сравнение числовых прогнозов одного источника/периода/origin до actual |
-| `macro.revised` | Пересмотр actual того же опубликованного выпуска |
-| `scenario.probability_changed` | Переход рыночной цены конкретного исхода; правила оценивают изменение за окно |
+| Источник | Использование | Интервал |
+| --- | --- | --- |
+| XOOMAR | Факты и пересмотры headline CPI/PCE, NFP change, GDP, midpoint ставки | 10 минут |
+| MQL5 web | Обновления прогнозов; дополнительные core/MoM, unemployment, ECI | 5 минут |
+| Polymarket | Цена Yes конкретного контракта снижения ставки ФРС на 25 б.п. в декабре 2026 | 1 минута |
 
-Холодный старт сохраняет baseline без рассылки истории. `null` не равен нулю. Смена периода, источника, единиц, origin прогноза или resolution criteria не выдаётся за пересмотр того же значения. Пересмотр прошлого периода из поля `previous` требует однозначного mapping адаптера; P1 сохраняет это поле как контекст и не выдумывает release identity.
+Серии разделены между источниками, чтобы не рассылать одинаковый факт от двух API. Разные поставщики, MoM/YoY, единицы и reference periods не объединяются. MQL5 listing не сообщает reference period: он явно остаётся `unknown`, а сравнение ограничено стабильным vendor release ID. Это недокументированная web-интеграция, включённая флагом experimental; официальный MT5 API — другой транспорт.
 
-При 55 → 64 → 75% последнее событие содержит +11 п.п., а сообщение за час — +20 п.п. из сохранённого evaluation context. Свежая неизменившаяся цена тоже проверяет завершившееся окно. Правила фильтруют серии/контракты, возраст, спред, ликвидность, порог и cooldown; причины подавления видны в summary. Прогноз consensus, модельная оценка и цена рынка остаются разными сущностями.
+Polymarket rule по умолчанию требует изменение минимум 5 п.п. за час, спред не более 5 п.п., market-aggregate liquidity от $10 000 и свежий CLOB book. Это цена конкретного исхода, не доля трейдеров. Market ID/исход/порог меняются в YAML; после экспирации выбранный контракт требуется заменить. Критерии разрешения включены в identity; их изменение создаёт новый baseline.
 
-## Локальная разработка
+Квоты учитываются до запросов и сохраняются между рестартами. MQL5/XOOMAR fetch делает один запрос; Polymarket резервирует два — metadata и book. Ошибки одного источника не останавливают остальные. Доступ к данным и их перепубликация сохраняют условия поставщика; [матрица источников](docs/sources.md) описывает ограничения.
 
-Установите [uv](https://docs.astral.sh/uv/getting-started/installation/). Затем:
+## Доставка
+
+Работают `macro.release`, `macro.forecast_changed`, `macro.revised`, `scenario.probability_changed`. `null` не равен нулю. Пересмотр поля previous не выдаётся за пересмотр прошлого выпуска без подтверждённого mapping.
+
+Outbox фиксируется вместе с наблюдением, baseline, событием и checkpoint. Отправка учитывает `ok:true`, HTTP 429/retry_after, временные ошибки, постоянные ошибки и неоднозначные timeout. Максимум 10 попыток, пауза между сообщениями минимум 3 секунды. После аварии во время отправки возможен повтор внешнего сообщения: exactly-once Telegram не обещается.
+
+При недоступном чате сбор продолжается, сообщения остаются в очереди; доступ проверяется раз в минуту до восстановления. Очередь старого chat/topic не перенаправляется в новый чат после изменения конфигурации. `status` показывает retry/dead-letter и ошибки источников. Ручной интерфейс управления dead-letter и дополнительные адаптеры остаются дальнейшими задачами.
+
+Для проверки доступа без отправки:
+
+```bash
+docker compose exec -T alerts macro-event-alerts telegram-check --config /app/config.live.yaml
+```
+
+`telegram-test` отправляет **одно сообщение** с явно обозначенным контрольным снимком сохранённых данных. Это ручная диагностика; CI и запуск контейнера её не вызывают.
+
+## Offline replay
+
+```bash
+docker compose --profile demo run --rm replay replay --config /app/config.replay.yaml --fixture /app/examples/replay/demo.jsonl
+docker compose --profile demo up -d replay
+```
+
+Replay изолирован от сети и Telegram credentials, использует отдельный `replay-state` и синтетические данные. Результат первого прохода: 12 наблюдений, 7 событий, 6 dry-run сообщений. Повторный проход не создаёт новые события. Свежая неизменившаяся цена тоже может завершить окно сравнения; для 55→64→75% сообщение за окно показывает +20 п.п., а последнее доменное событие — +11 п.п.
+
+## Проверки без лишних повторов
 
 ```bash
 uv sync --locked
-uv run macro-event-alerts validate-config --config config.replay.yaml
-uv run macro-event-alerts replay --config config.replay.yaml --fixture examples/replay/demo.jsonl --state data/state.db
-uv run macro-event-alerts status --state data/state.db
-uv run pytest -q
-uv run python scripts/validate_contracts.py
+uv run --locked pytest -q
+uv run --locked python scripts/validate_contracts.py
 ```
 
-Replay использует время из наблюдений как логические часы: он не маскирует исторический fixture под свежие данные. `--stop-after N` останавливает чтение после N новых строк; `--no-drain` сохраняет pending outbox для проверки восстановления. Изменение содержимого fixture создаёт новый cursor namespace, но сохранённые observation ID и domain events не повторяются.
+CI запускается один раз на PR, а не одновременно на push ветки и PR. Изменение документации пропускает тяжёлые jobs; устаревший run отменяется. Unit/contract checks используют одну установку зависимостей; Docker собирается один раз с кешем и проверяется одним offline container smoke, содержащим два процесса для доказательства восстановления.
 
-## Конфигурация и дальнейшие источники
+Локально после небольшого исправления запускайте затронутый набор тестов. Полный набор нужен перед завершением изменения runtime; повторная Docker-сборка нужна при изменении runtime/dependencies/build config. В процессе схемы компилируются один раз; health не выполняет полный scan SQLite или перечисление событий.
 
-[`config.replay.yaml`](config.replay.yaml) — рабочая конфигурация P1 с fixture adapter. [`config.example.yaml`](config.example.yaml) — проектный пример будущих API; P1 отклоняет не реализованные live adapters и `dry_run:false`. Включение правила проверяет capabilities доступного адаптера.
-
-`.env.example` задаёт имена Telegram-переменных для будущего sender. Реальные значения остаются в локальном `.env`; P1 их не читает. Поддержка live-провайдеров, повторов Telegram и external delivery будет добавляться по [backlog P2–P6](https://github.com/karnaksp/macro-event-alerts/issues?q=is%3Aissue%20is%3Aopen%20sort%3Acreated-asc).
-
-Бесплатные API дают разные возможности и задержки; быстрый бесплатный consensus не обещается. MQL5 web остаётся экспериментальным, MT5 требует отдельного bridge, CME EOD и intraday — разные продукты. Доступ к данным и перепубликация регулируются поставщиком; Apache 2.0 относится к коду.
+Проверенный runtime-образ уменьшен с 223,3 до 86,5 МБ: Alpine, binary wheels, 10 удалённых необязательных зависимостей; uv и dev tools остаются в builder. [Результаты live-проверки](docs/live-verification.md).
 
 ## Документация
 
-- [Архитектура и транзакции](docs/architecture.md)
-- [Проверка P1 и границы готовности](docs/p1-verification.md)
-- [Источники, доступ, задержки](docs/sources.md)
-- [Контракт наблюдений/событий](.archcore/events.spec.md), [адаптеров/правил](.archcore/providers-and-rules.spec.md), [Telegram](.archcore/telegram-delivery.spec.md)
-- [Требования](.archcore/product.prd.md), [план реализации](.archcore/implementation.plan.md), [приёмочные сценарии](docs/acceptance-cases.md)
-- [JSON Schema v1](contracts/v1/) и [синтетические примеры](examples/)
+- [Архитектура](docs/architecture.md), [источники](docs/sources.md), [приёмочные сценарии](docs/acceptance-cases.md)
+- [Контракты](contracts/v1/), [примеры](examples/), [план](.archcore/implementation.plan.md)
+- [Наблюдения/события](.archcore/events.spec.md), [адаптеры/правила](.archcore/providers-and-rules.spec.md), [Telegram](.archcore/telegram-delivery.spec.md)
+- [Историческая проверка P1](docs/p1-verification.md), [live и оптимизация](docs/live-verification.md)
 
-Нормативные документы остаются draft; статусы реализации указаны отдельно. Для чтения документации Archcore устанавливать не требуется.
+Нормативные документы имеют статус draft; реализация и ограничения фиксируются отдельно. Archcore для чтения не требуется.

@@ -13,8 +13,8 @@ tags:
 
 - `@.env.example`: bot token, chat ID и опциональный message_thread_id.
 - `@config.example.yaml`: dry_run и имена переменных окружения.
-- Outbox record: event_id, subscription_id, evaluation_context, destination, status, attempts, next_attempt_at, last_error, message_id; P1 storage/render: `@src/macro_event_alerts/storage.py`, `@src/macro_event_alerts/render.py`.
-- Planned states: pending, sending, retry, delivered, ambiguous, dead_letter.
+- Outbox record: event_id, subscription_id, evaluation_context, destination, status, attempts, next_attempt_at, last_error, message_id; Storage/render: `@src/macro_event_alerts/storage.py`, `@src/macro_event_alerts/render.py`.
+- States: pending, sending, retry, delivered, ambiguous, dead_letter.
 - Внешний интерфейс: [Telegram sendMessage](https://core.telegram.org/bots/api#sendmessage).
 
 ## Normative Behavior
@@ -52,4 +52,9 @@ tags:
 ## Conformance
 
 Все MUST и состояния проверяются fake Telegram transport до live smoke test; список запланированных отказов хранится в `@docs/acceptance-cases.md`.
-P1 реализует pending → dry_run и renderer; остальные состояния и live sender относятся к P5. P1 не читает credentials и не вызывает Telegram API.
+Live sender реализован в `@src/macro_event_alerts/telegram.py`, очередь/планировщик — в `@src/macro_event_alerts/live.py`. Replay остаётся изолированным от credentials.
+Проверенные состояния включают retry, ambiguous, delivered и dead_letter; ручной operator CLI для dead_letter ещё не реализован.
+Одна явно разрешённая live diagnostic отправка подтверждена API; fake transport проверяет остальные отказы.
+
+Sender MUST фильтровать очередь по сохранённому destination; конфигурация нового чата не перенаправляет старые задания.
+Sender MUST выдерживать паузу минимум 3 секунды между сообщениями текущего чата.

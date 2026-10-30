@@ -1,6 +1,6 @@
 # Архитектура MVP
 
-Статус на 30 октября 2026: P1 реализован — fixture replay, SQLite, detector, правила, dry-run, CLI и Docker. Live API и Telegram sender ещё не реализованы.
+Статус на 30 октября 2026: Работают fixture replay, live XOOMAR/MQL5/Polymarket, SQLite, detector, правила, Telegram sender, CLI и Docker.
 
 ```mermaid
 flowchart LR
@@ -15,7 +15,7 @@ flowchart LR
   Sender --> Chat[Указанный чат / topic]
 ```
 
-P1 использует Python, JSON Schema, PyYAML и стандартный sqlite3; версии заданы в `pyproject.toml`/`uv.lock`. Live polling позже добавит HTTP-клиент и scheduler; P1 выполняет конечный JSONL replay без сети. Один экземпляр worker в одном контейнере, WAL, постоянный volume `/data`. Дублирующий экземпляр с тем же state path отклоняется блокировкой. Горизонтальное выполнение — отдельное расширение.
+Runtime использует Python, JSON Schema, PyYAML, sqlite3 и urllib; версии заданы в `pyproject.toml`/`uv.lock`. Live scheduler имеет сохранённые квоты/время следующего опроса. Replay выполняет JSONL без сети. Один экземпляр worker в одном контейнере, WAL, постоянный volume `/data`. Дублирующий экземпляр с тем же state path отклоняется блокировкой. Горизонтальное выполнение — отдельное расширение.
 
 ## Границы модулей
 
@@ -33,7 +33,7 @@ P1 использует Python, JSON Schema, PyYAML и стандартный sq
 
 ## Данные и транзакции
 
-Планируемые таблицы: `raw_responses`, `observations`, `subject_state`, `provider_checkpoints`, `events`, `subscriptions`, `outbox`, `quarantine`. Таблицы создаёт migration v1 в `src/macro_event_alerts/storage.py`. Сохранение принятого наблюдения, версии состояния, событий, outbox и курсора образует одну транзакцию. Raw можно сохранять заранее, но checkpoint продвигается после commit. Crash до commit допускает безопасное повторное чтение.
+Планируемые таблицы: `raw_responses`, `observations`, `subject_state`, `provider_checkpoints`, `events`, `subscriptions`, `outbox`, `quarantine`. Таблицы создают migrations v1/v2 в `src/macro_event_alerts/storage.py`. Сохранение принятого наблюдения, версии состояния, событий, outbox и курсора образует одну транзакцию. Raw можно сохранять заранее, но checkpoint продвигается после commit. Crash до commit допускает безопасное повторное чтение.
 
 `subject_key` вычисляется по правилам [контракта событий](../.archcore/events.spec.md); `state_version` увеличивается при принятом изменении значений. `event_id` создаётся один раз на переход, затем хранится. Повтор запроса не создаёт новый переход, а A→B→A остаются разными переходами. Порядок определяется монотонной ревизией провайдера или source timestamp. Если их нет, сравниваются последовательно полученные снимки с пометкой неизвестного времени публикации; исторические запросы отдельно от live polling.
 
@@ -43,7 +43,7 @@ P1 использует Python, JSON Schema, PyYAML и стандартный sq
 
 ## Планируемый Docker runtime
 
-`Dockerfile` и `compose.yaml` запускают replay worker. CLI `replay`, `validate-config`, `status` и `health` реализованы; `run` live polling и `outbox retry` Telegram остаются будущими командами. Образ работает без root; конфигурация монтируется read-only, состояние хранится в volume, токен берётся из окружения. Остановка завершает текущую транзакцию и оставляет неотправленные записи в outbox. SQLite использует user_version=1; неизвестная версия отклоняется. Пока реализована только начальная миграция; backup перед будущей несовместимой миграцией входит в последующие этапы. Retention raw и snapshots задаётся конфигурацией после измерения размера данных; схема и события не удаляются раньше требуемого окна сравнения.
+`Dockerfile` и `compose.yaml` запускают replay worker. CLI `run`, `replay`, `validate-config`, `status`, `health`, `telegram-check` и ручной `telegram-test` реализованы; operator `outbox retry` остаётся дальнейшей задачей. Образ работает без root; конфигурация монтируется read-only, состояние хранится в volume, токен берётся из окружения. Остановка завершает текущую транзакцию и оставляет неотправленные записи в outbox. SQLite использует user_version=2; неизвестная версия отклоняется. Миграция v1→v2 сохраняет старую очередь и добавляет delivery state/provider budgets; backup перед будущей несовместимой миграцией входит в последующие этапы. Retention raw и snapshots задаётся конфигурацией после измерения размера данных; схема и события не удаляются раньше требуемого окна сравнения.
 
 Health различает состояние процесса, последнюю успешную загрузку каждого источника, давность данных и возраст outbox. Логи содержат event/provider/rule ID; токены и полные Telegram URL с токеном исключаются. Ошибки источника имеют отдельный канал состояния и cooldown; непрерывный отказ не порождает алерт на каждом опросе.
 
@@ -56,3 +56,7 @@ Health различает состояние процесса, последню�
 Сервис читает данные и отправляет уведомления. Сделки, торговые ключи, автоматический прогноз цены золота и LLM в MVP не входят.
 
 P1 dry-run сохраняет message_text/evaluation context до commit и переводит pending в dry_run после stdout. Авария между stdout и отметкой допускает повтор stdout, но не новое логическое событие. Health P1 проверяет схему и quick_check SQLite; метрики live source freshness и Telegram queue age относятся к следующим этапам.
+
+Live реализован в `src/macro_event_alerts/live.py`: request budget резервируется до HTTP, затем observations/events/outbox/provider checkpoint фиксируются одной транзакцией. Sending фиксируется до вызова Telegram, ack/retry — после. Последний sending после crash становится ambiguous либо dead_letter при исчерпанных 10 попытках. Destination фиксируется в outbox и фильтруется при отправке; изменение chat ID не перенаправляет старые сообщения.
+
+Health v2 не сканирует таблицы; он проверяет schema, heartbeat, доступность Telegram и наличие недавнего успешного источника. Подробные ошибки каждого провайдера и счётчики доступны в status.

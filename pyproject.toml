@@ -1,11 +1,11 @@
 [project]
 name = "macro-event-alerts"
-version = "0.1.0"
-description = "Offline replay and durable macroeconomic alert pipeline"
+version = "0.2.0"
+description = "Macroeconomic API alerts with durable Telegram delivery"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
-dependencies = ["jsonschema[format]>=4.23,<5", "pyyaml>=6,<7"]
+dependencies = ["jsonschema>=4.23,<5", "pyyaml>=6,<7", "rfc3339-validator>=0.1.4,<1"]
 
 [project.scripts]
 macro-event-alerts = "macro_event_alerts.cli:main"

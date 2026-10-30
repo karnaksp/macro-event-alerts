@@ -7,7 +7,7 @@ tags:
 
 ## Goal
 
-Довести опубликованные контракты до первого запускаемого Docker-релиза с проверенными API-адаптерами и Telegram-доставкой. P1 реализован и проверен; P2–P6 остаются будущей работой. Готовность offline replay не означает готовность live API и Telegram sender.
+Довести опубликованные контракты до первого запускаемого Docker-релиза с проверенными API-адаптерами и Telegram-доставкой. P1 и live-ядро P2–P5 реализованы и проверены; расширение покрытия, operator tooling и релиз P6 остаются дальнейшей работой. Готовность offline replay не означает готовность live API и Telegram sender.
 
 ## Declared Delta
 
@@ -82,10 +82,12 @@ tags:
 | P5 | Fake transport transcript с 429/5xx/ok:false/timeout/401/403; журнал восстановления outbox |
 | P6 | Чистая установка, release tag, digest образа, перечень поддержанных источников и результат разрешённого smoke test |
 
-P1 выполнен; P2–P6 пока не выполнены. Документы draft проходят принятие после рассмотрения владельцем; plan закрывается после проверки всех задач.
+P1 выполнен. Live polling XOOMAR/MQL5/Polymarket и Telegram sender работают; полное покрытие всех источников/серий, operator tooling и release packaging продолжаются. Документы draft проходят принятие после рассмотрения владельцем; plan закрывается после проверки всех задач.
 
 ## Dependencies
 
 P1 зависит от контрактов P0; P2, P3, P4 зависят от P1 и могут разрабатываться параллельно. P5 зависит от core/outbox P1 и не требует готовности всех адаптеров. P6 зависит от P2/P4/P5; P3 входит в первый релиз только если экспериментальная интеграция прошла проверки, иначе capability forecast явно выключена.
 
 Перед live подключением нужны Telegram token/chat ID и выбранный scenario contract. Доступность MQL5 web, покрытие серий, условия API и фактическая задержка остаются внешними ограничениями. Автоматическая покупка данных не входит в план.
+
+Live-реализация: `@src/macro_event_alerts/live.py`, `@src/macro_event_alerts/providers.py`, `@src/macro_event_alerts/polymarket.py`, `@src/macro_event_alerts/telegram.py`; рабочая конфигурация: `@config.live.yaml`; доказательства: `@docs/live-verification.md`.

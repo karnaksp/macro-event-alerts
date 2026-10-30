@@ -1,37 +1,43 @@
+x-worker: &worker
+  image: macro-event-alerts:local
+  build:
+    context: .
+    target: runtime
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=16777216
+  stop_grace_period: 15s
+  healthcheck:
+    test: [CMD, macro-event-alerts, health, --state, /data/state.db]
+    interval: 60s
+    timeout: 5s
+    start_period: 15s
+    retries: 3
+
 services:
+  alerts:
+    <<: *worker
+    command: [run, --config, /app/config.live.yaml]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - live-state:/data
+      - ./config.live.yaml:/app/config.live.yaml:ro
+
   replay:
-    image: macro-event-alerts:local
-    build:
-      context: .
-      target: runtime
-    command:
-      - replay
-      - --config
-      - /app/config.replay.yaml
-      - --fixture
-      - /app/examples/replay/demo.jsonl
-      - --follow
-      - --interval
-      - '30'
-    init: true
-    restart: unless-stopped
-    read_only: true
+    <<: *worker
+    profiles: [demo]
     network_mode: none
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=16777216
+    command: [replay, --config, /app/config.replay.yaml, --fixture, /app/examples/replay/demo.jsonl, --follow, --interval, '30']
     volumes:
       - replay-state:/data
-    stop_grace_period: 10s
-    healthcheck:
-      test: [CMD, macro-event-alerts, health, --state, /data/state.db]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
 
 volumes:
+  live-state:
+  # Preserve the existing P1 demo volume; it is separate from live observations.
   replay-state:

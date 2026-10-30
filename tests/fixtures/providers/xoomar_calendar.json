@@ -1,0 +1,111 @@
+{
+  "data": [
+    {
+      "source": "bls",
+      "eventName": "Nonfarm Payrolls (Employment Situation)",
+      "importance": "high",
+      "scheduledAt": "2026-10-02T12:30:00.000Z",
+      "periodLabel": "September 2026",
+      "previous": "133.0000",
+      "forecast": null,
+      "actual": "29.0000",
+      "unit": "thousands, monthly change",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/jobs-report"
+    },
+    {
+      "source": "bls",
+      "eventName": "CPI (Consumer Price Index)",
+      "importance": "high",
+      "scheduledAt": "2026-10-14T12:30:00.000Z",
+      "periodLabel": "September 2026",
+      "previous": "3.4000",
+      "forecast": null,
+      "actual": "3.7000",
+      "unit": "% y/y, all items",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/cpi"
+    },
+    {
+      "source": "fed",
+      "eventName": "FOMC Rate Decision",
+      "importance": "high",
+      "scheduledAt": "2026-10-28T18:00:00.000Z",
+      "periodLabel": "October 27-28, 2026 meeting",
+      "previous": "3.8750",
+      "forecast": null,
+      "actual": "3.8750",
+      "unit": "%, target range midpoint",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/fomc"
+    },
+    {
+      "source": "bea",
+      "eventName": "Personal Income and Outlays (PCE)",
+      "importance": "high",
+      "scheduledAt": "2026-10-29T12:30:00.000Z",
+      "periodLabel": "September 2026",
+      "previous": "3.4000",
+      "forecast": null,
+      "actual": "3.6000",
+      "unit": "% y/y, PCE price index",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/pce"
+    },
+    {
+      "source": "bea",
+      "eventName": "GDP (Advance Estimate), 3rd Quarter 2026",
+      "importance": "high",
+      "scheduledAt": "2026-10-29T12:30:00.000Z",
+      "periodLabel": null,
+      "previous": "2.2000",
+      "forecast": null,
+      "actual": "3.4000",
+      "unit": "% q/q annualized, real GDP",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/gdp"
+    },
+    {
+      "source": "bls",
+      "eventName": "Employment Cost Index",
+      "importance": "med",
+      "scheduledAt": "2026-10-30T12:30:00.000Z",
+      "periodLabel": "Third Quarter 2026",
+      "previous": null,
+      "forecast": null,
+      "actual": null,
+      "unit": null
+    },
+    {
+      "source": "bls",
+      "eventName": "Nonfarm Payrolls (Employment Situation)",
+      "importance": "high",
+      "scheduledAt": "2026-11-06T13:30:00.000Z",
+      "periodLabel": "October 2026",
+      "previous": null,
+      "forecast": null,
+      "actual": null,
+      "unit": "thousands, monthly change",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/jobs-report"
+    },
+    {
+      "source": "bls",
+      "eventName": "CPI (Consumer Price Index)",
+      "importance": "high",
+      "scheduledAt": "2026-11-10T13:30:00.000Z",
+      "periodLabel": "October 2026",
+      "previous": null,
+      "forecast": null,
+      "actual": null,
+      "unit": "% y/y, all items",
+      "canonicalUrl": "https://xoomar.com/markets/calendar/cpi"
+    }
+  ],
+  "updatedAt": "2026-10-29T17:30:03.590Z",
+  "nextReleaseAt": "2026-11-05T13:30:00.000Z",
+  "source": "xoomar.com",
+  "docs": "https://xoomar.com/markets/api",
+  "license": "https://xoomar.com/terms",
+  "attribution": "Credit XOOMAR with a link to the dataset page on xoomar.com when you republish this data",
+  "canonicalUrl": "https://xoomar.com/markets/calendar",
+  "meta": {
+    "source": "Bureau of Labor Statistics, Bureau of Economic Analysis, Census Bureau, Federal Reserve Board, FRED (Federal Reserve Bank of St. Louis), U.S. Treasury",
+    "sourceAttribution": "Release dates and figures: Bureau of Labor Statistics, Bureau of Economic Analysis, Census Bureau, Federal Reserve Board, FRED (Federal Reserve Bank of St. Louis) and U.S. Treasury. This product uses the FRED\u00ae API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.",
+    "notice": "10 requests a minute without a key, 30 with a free key. Get a free key at https://xoomar.com/signup?utm_source=api, register your app at https://xoomar.com/developers/register?utm_source=api, and credit the data as \"Data: XOOMAR\" together with the sourceAttribution line. To poll the calendar, send the ETag back in If-None-Match (an unchanged calendar answers 304, which does not count against the limit) and call again at nextReleaseAt instead of every minute."
+  }
+}

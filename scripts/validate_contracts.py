@@ -9,7 +9,7 @@ import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
-from macro_event_alerts.validation import semantics, config_semantics
+from macro_event_alerts.validation import semantics, config_semantics, FORMAT_CHECKER
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "contracts/v1"
@@ -24,7 +24,7 @@ def main() -> None:
         schemas[path.name] = data
         registry = registry.with_resource(data["$id"], Resource.from_contents(data))
     validators = {
-        name: Draft202012Validator(data, registry=registry, format_checker=FormatChecker())
+        name: Draft202012Validator(data, registry=registry, format_checker=FORMAT_CHECKER)
         for name, data in schemas.items()
     }
 

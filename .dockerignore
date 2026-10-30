@@ -1,5 +1,4 @@
-# Allow only the files needed for the image. Local credentials and SQLite
-# volumes never enter the build context, including under nested directories.
+# Whitelist image inputs; private config and persisted state never enter context.
 **
 !pyproject.toml
 !uv.lock
@@ -11,6 +10,7 @@
 !contracts/
 !contracts/**
 !config.replay.yaml
+!config.live.yaml
 !examples/
 !examples/replay/
 !examples/replay/**

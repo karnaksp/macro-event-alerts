@@ -12,7 +12,7 @@ tags:
 ## Surface
 
 - `@config.example.yaml`, `@contracts/v1/config.schema.json`: конфигурация и правила.
-- Adapter surface: capabilities, fetch(checkpoint, budget), FetchBatch(raw, observations, next_checkpoint, next_poll_at); P1 fixture ingestion: `@src/macro_event_alerts/app.py`; live adapter interface остаётся проектным.
+- Adapter surface: capabilities, fetch(checkpoint, budget), FetchBatch(raw, observations, next_checkpoint, next_poll_at); P1 fixture ingestion: `@src/macro_event_alerts/app.py`; live adapters: `@src/macro_event_alerts/providers.py`, `@src/macro_event_alerts/polymarket.py`.
 - Capabilities: actual, forecast, revisions, scenario_probability; forecast origins, транспорт, задержка, авторизация, лимиты и статус проверки.
 - Source-specific mapping: source series → canonical series, timezone, scale, release identity; подтверждается raw fixtures.
 
@@ -50,12 +50,15 @@ tags:
 
 1. IF опорный снимок comparison window отсутствует, THEN rules engine MUST сохранить baseline без уведомления об изменении.
 2. IF источник исчерпал бюджет, THEN scheduler MUST отложить запрос до пополнения лимита без подмены поставщика.
-3. IF ответ не содержит ожидаемых единиц или периода, THEN adapter MUST вернуть ошибку данных вместо предположения.
+3. IF единицы неизвестны либо отсутствуют период и стабильный release ID, THEN adapter MUST вернуть ошибку данных.
 4. IF API не публикует forecast, THEN adapter MUST сохранить null и выключенную forecast capability.
 5. IF критерии разрешения сценария меняются, THEN adapter MUST начать новый baseline с новым resolution_hash.
 6. IF правило содержит неразрешённый market placeholder, THEN config validator MUST отклонить включение правила.
 
 ## Conformance
 
-P1 конфигурация и правила реализованы в `@src/macro_event_alerts/config.py` и `@src/macro_event_alerts/engine.py`; форма проверяется `@scripts/validate_contracts.py`; полное соответствие требует capability fixtures, budget tests и runtime-сценариев `@docs/acceptance-cases.md`.
+Конфигурация и правила реализованы в `@src/macro_event_alerts/config.py` и `@src/macro_event_alerts/engine.py`; форма проверяется `@scripts/validate_contracts.py`; полное соответствие требует capability fixtures, budget tests и runtime-сценариев `@docs/acceptance-cases.md`.
 Измерение задержки поставщика отделено от времени обработки приложения; отсутствие source timestamp не позволяет заявить измеренный release lag.
+
+MQL5 listing MAY использовать reference_period=unknown только с vendor release ID; дата релиза не заменяет период статистики.
+Публичные API проверены реальными read-only fetch; платные и trading endpoints не используются.

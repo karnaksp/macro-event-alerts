@@ -14,7 +14,7 @@ from .domain import canonical, instant, sha256, subject_key
 from .engine import detect, evaluate_rule
 from .render import render
 from .storage import Store
-from .validation import Contracts, ContractError
+from .validation import Contracts, ContractError, get_contracts
 
 
 def _stale(previous: dict, observation: dict) -> str | None:
@@ -43,14 +43,19 @@ def _stale(previous: dict, observation: dict) -> str | None:
 def _subscription(store: Store, rule: dict, config: dict, at: str) -> dict:
     version = sha256(rule)
     # P1 deliberately does not load .env or private destinations.
-    destination = "dry-run:" + config["telegram"]["chat_id_env"] + ":" + (config["telegram"]["message_thread_id_env"] or "")
+    if config["telegram"]["dry_run"]:
+        destination = "dry-run:" + config["telegram"]["chat_id_env"] + ":" + (config["telegram"]["message_thread_id_env"] or "")
+    else:
+        from .config import telegram_environment
+        _, chat, topic = telegram_environment(config)
+        destination = "telegram:" + chat + ":" + (topic or "")
     identity = sha256({"rule_id": rule["id"], "version": version, "destination": destination})
     store.conn.execute("INSERT OR IGNORE INTO subscriptions VALUES(?,?,?,?,?)",
                        (identity, rule["id"], version, destination, at))
     return dict(store.conn.execute("SELECT * FROM subscriptions WHERE subscription_id=?", (identity,)).fetchone())
 
 
-def _ingest(store: Store, config: dict, contracts: Contracts, envelope: dict) -> tuple[list[dict], str | None]:
+def _ingest(store: Store, config: dict, contracts: Contracts, envelope: dict, *, now=None) -> tuple[list[dict], str | None]:
     observation = envelope["observation"]
     contracts.validate(observation, "observation.schema.json")
     raw = envelope["raw"]
@@ -110,22 +115,23 @@ def _ingest(store: Store, config: dict, contracts: Contracts, envelope: dict) ->
         subscription = _subscription(store, rule, config, observation["observed_at"])
         last = store.conn.execute("SELECT max(created_at) FROM outbox WHERE subscription_id=?", (subscription["subscription_id"],)).fetchone()[0]
         for event in rule_events:
-            context, why = evaluate_rule(rule, event, observation, history, now=instant(observation["observed_at"]),
+            context, why = evaluate_rule(rule, event, observation, history, now=now or instant(observation["observed_at"]),
                                          last_alert_at=last, activated_at=subscription["activated_at"])
             if context is None:
                 diagnostics.append({"rule_id": rule["id"], "event_id": event["event_id"], "reason": why})
                 continue
             context["rule_version"] = subscription["rule_version"]
-            inserted = store.conn.execute("INSERT OR IGNORE INTO outbox VALUES(?,?,?,?,?,?,?,?)", (
+            inserted = store.conn.execute("INSERT OR IGNORE INTO outbox(outbox_id,event_id,subscription_id,destination,status,evaluation_json,message_text,created_at,delivery_mode) VALUES(?,?,?,?,?,?,?,?,?)", (
                 str(uuid4()), event["event_id"], subscription["subscription_id"], subscription["destination"],
-                "pending", canonical(context), render(event, context), observation["observed_at"]))
+                "pending", canonical(context), render(event, context, dry_run=config["telegram"]["dry_run"]), observation["observed_at"],
+                "dry_run" if config["telegram"]["dry_run"] else "telegram"))
             if inserted.rowcount:
                 last = observation["observed_at"]
     return diagnostics, None
 
 
 def drain_outbox(store: Store, output: TextIO) -> int:
-    rows = store.conn.execute("SELECT outbox_id,event_id,message_text FROM outbox WHERE status='pending' ORDER BY rowid").fetchall()
+    rows = store.conn.execute("SELECT outbox_id,event_id,message_text FROM outbox WHERE status='pending' AND delivery_mode='dry_run' ORDER BY rowid").fetchall()
     for row in rows:
         # Stdout can duplicate if interrupted after writing but before marking the row.
         output.write(json.dumps({"type": "dry_run", "event_id": row["event_id"], "message": row["message_text"]}, ensure_ascii=False) + "\n")
@@ -137,9 +143,11 @@ def drain_outbox(store: Store, output: TextIO) -> int:
 
 def replay_file(config_path: Path | str, fixture_path: Path | str, *, state_path: Path | str | None = None,
                 stop_after: int | None = None, drain: bool = True, output: TextIO | None = None,
-                before_commit: Callable[[], None] | None = None, _store: Store | None = None) -> dict:
-    config = load_config(config_path, state_path=state_path)
-    contracts = Contracts()
+                before_commit: Callable[[], None] | None = None, _store: Store | None = None, _config: dict | None = None) -> dict:
+    config = _config if _config is not None else load_config(config_path, state_path=state_path)
+    if not config["telegram"]["dry_run"]:
+        raise ContractError("replay requires dry_run=true")
+    contracts = get_contracts()
     content = Path(fixture_path).read_bytes()
     fixture_key = hashlib.sha256(content).hexdigest()
     stream = output if output is not None else sys.stdout

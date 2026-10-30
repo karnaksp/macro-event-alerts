@@ -45,11 +45,38 @@ PRAGMA user_version=1;
 """
 
 
+
+MIGRATION_2 = """
+ALTER TABLE outbox RENAME TO outbox_v1;
+CREATE TABLE outbox (
+    outbox_id TEXT PRIMARY KEY, event_id TEXT NOT NULL REFERENCES events(event_id),
+    subscription_id TEXT NOT NULL REFERENCES subscriptions(subscription_id), destination TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending','dry_run','sending','retry','ambiguous','delivered','dead_letter')),
+    evaluation_json TEXT NOT NULL, message_text TEXT NOT NULL, created_at TEXT NOT NULL,
+    delivery_mode TEXT NOT NULL DEFAULT 'dry_run' CHECK(delivery_mode IN ('dry_run','telegram')),
+    attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, last_error TEXT,
+    message_id TEXT, sending_started_at TEXT,
+    UNIQUE(event_id,subscription_id,destination)
+);
+INSERT INTO outbox(outbox_id,event_id,subscription_id,destination,status,evaluation_json,message_text,created_at)
+SELECT outbox_id,event_id,subscription_id,destination,status,evaluation_json,message_text,created_at FROM outbox_v1;
+DROP TABLE outbox_v1;
+CREATE INDEX outbox_due ON outbox(delivery_mode,status,next_attempt_at);
+CREATE TABLE provider_state (
+    provider_id TEXT PRIMARY KEY, initialized INTEGER NOT NULL DEFAULT 0,
+    last_success_at TEXT, last_attempt_at TEXT, next_poll_at TEXT,
+    error TEXT, request_date TEXT, requests_today INTEGER NOT NULL DEFAULT 0,
+    checkpoint_json TEXT
+);
+CREATE TABLE runtime_state (key TEXT PRIMARY KEY, value_json TEXT NOT NULL);
+PRAGMA user_version=2;
+"""
+
 def inspect_state(path: Path | str) -> dict:
     uri = Path(path).resolve().as_uri() + "?mode=ro"
     with sqlite3.connect(uri, uri=True, timeout=5) as conn:
         conn.row_factory = sqlite3.Row
-        if conn.execute("PRAGMA user_version").fetchone()[0] != 1:
+        if conn.execute("PRAGMA user_version").fetchone()[0] != 2:
             raise ValueError("unsupported state schema version")
         if conn.execute("PRAGMA quick_check").fetchone()[0] != "ok":
             raise ValueError("SQLite integrity check failed")
@@ -59,7 +86,7 @@ def inspect_state(path: Path | str) -> dict:
 def _stats(conn: sqlite3.Connection) -> dict:
     counts = {name: conn.execute(f"SELECT count(*) FROM {name}").fetchone()[0]
               for name in ("observations", "events", "outbox", "quarantine")}
-    for status in ("pending", "dry_run"):
+    for status in ("pending", "dry_run", "sending", "retry", "ambiguous", "delivered", "dead_letter"):
         counts[status] = conn.execute("SELECT count(*) FROM outbox WHERE status=?", (status,)).fetchone()[0]
     return counts
 
@@ -68,6 +95,8 @@ def _status(conn: sqlite3.Connection) -> dict:
     return {
         "counts": _stats(conn),
         "event_ids": [row[0] for row in conn.execute("SELECT event_id FROM events ORDER BY rowid")],
+        "providers": [dict(row) for row in conn.execute(
+            "SELECT provider_id,initialized,last_success_at,next_poll_at,error,requests_today FROM provider_state ORDER BY provider_id")],
         "checkpoints": [dict(row) for row in conn.execute(
             "SELECT provider_id,fixture_key,line_number FROM provider_checkpoints ORDER BY provider_id,fixture_key")],
     }
@@ -92,7 +121,10 @@ class Store:
             version = self.conn.execute("PRAGMA user_version").fetchone()[0]
             if version == 0:
                 self.conn.executescript("BEGIN IMMEDIATE;" + MIGRATION_1 + "COMMIT;")
-            elif version != 1:
+                version = 1
+            if version == 1:
+                self.conn.executescript("BEGIN IMMEDIATE;" + MIGRATION_2 + "COMMIT;")
+            elif version != 2:
                 raise ValueError("unsupported state schema version")
         except BaseException:
             if hasattr(self, "conn"):
@@ -143,3 +175,24 @@ class Store:
     def history(self, key: str) -> list[dict]:
         return [json.loads(row[0]) for row in self.conn.execute(
             "SELECT body_json FROM observations WHERE subject_key=? AND accepted=1 ORDER BY observed_at,rowid", (key,))]
+
+
+def health_state(path: Path | str) -> dict:
+    """Bounded liveness query: no integrity scan, counts or event ID enumeration."""
+    from datetime import datetime, timezone
+    from .domain import instant
+    with sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True, timeout=3) as conn:
+        if conn.execute("PRAGMA user_version").fetchone()[0] != 2:
+            return {"healthy": False, "reason": "schema_version"}
+        row = conn.execute("SELECT value_json FROM runtime_state WHERE key='heartbeat'").fetchone()
+        if row is None:
+            return {"healthy": True, "mode": "replay"}
+        heartbeat = json.loads(row[0])
+        now = datetime.now(timezone.utc)
+        age = (now - instant(heartbeat["at"])).total_seconds()
+        telegram = conn.execute("SELECT value_json FROM runtime_state WHERE key='telegram_status'").fetchone()
+        chat_ok = json.loads(telegram[0]).get("ok", False) if telegram else False
+        sources = conn.execute("SELECT last_success_at,error FROM provider_state LIMIT 100").fetchall()
+        sources_ok = any(at is not None and (now-instant(at)).total_seconds() <= 3600 for at,error in sources)
+        return {"healthy": age <= 180 and chat_ok and sources_ok, "mode": "live", "heartbeat_age_seconds": round(age),
+                "telegram_ready": chat_ok, "sources_ready": sources_ok}

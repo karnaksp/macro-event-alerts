@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
+from urllib.parse import urlsplit
 from pathlib import Path
 from decimal import Decimal
 
@@ -9,6 +11,17 @@ from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
 from .domain import subject_key, instant
+
+
+FORMAT_CHECKER = FormatChecker()
+
+
+@FORMAT_CHECKER.checks("uri", raises=ValueError)
+def _uri(value):
+    if not isinstance(value, str):
+        return True
+    parts = urlsplit(value)
+    return bool(parts.scheme and parts.netloc) and not any(char.isspace() for char in value)
 
 
 class ContractError(ValueError):
@@ -119,11 +132,10 @@ class Contracts:
         registry = Registry()
         for path in sorted(directory.glob("*.schema.json")):
             schema = json.loads(path.read_text())
-            Draft202012Validator.check_schema(schema)
             self.schemas[path.name] = schema
             registry = registry.with_resource(schema["$id"], Resource.from_contents(schema))
         self.validators = {
-            name: Draft202012Validator(schema, registry=registry, format_checker=FormatChecker())
+            name: Draft202012Validator(schema, registry=registry, format_checker=FORMAT_CHECKER)
             for name, schema in self.schemas.items()
         }
 
@@ -137,3 +149,9 @@ class Contracts:
         details = config_semantics(data) if schema_name == "config.schema.json" else semantics(data)
         if details:
             raise ContractError("; ".join(details))
+
+
+@lru_cache(maxsize=1)
+def get_contracts() -> Contracts:
+    """Compile bundled schemas once; schema correctness is checked by CI."""
+    return Contracts()
