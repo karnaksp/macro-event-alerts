@@ -6,6 +6,7 @@ import re
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
+from .catalog import REGIONAL_LABELS
 from .domain import decimal_text, instant
 
 LOCAL_ZONE = ZoneInfo("Europe/Podgorica")
@@ -33,7 +34,11 @@ SERIES_LABELS = {
     "US.JOBLESS.INITIAL.CLAIMS": "Первичные заявки на пособие в США",
     "US.ISM.MANUFACTURING.PMI": "ISM США · промышленность",
     "US.ISM.SERVICES.PMI": "ISM США · услуги",
+    "RU.CBR.KEY_RATE": "Ключевая ставка Банка России",
+    "RU.CPI.HEADLINE.YOY": "Инфляция CPI России · год к году",
+    **REGIONAL_LABELS,
 }
+COUNTRY_LABELS = {"US": "США", "CN": "Китай", "RU": "Россия", "EA": "Еврозона"}
 MONTHS = ("январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь")
 FORECAST_LABELS = {"consensus": "Консенсус", "model": "Модельный прогноз", "official_projection": "Официальный прогноз", "unknown": "Прогноз источника"}
 
@@ -142,15 +147,17 @@ def render(event: dict, context: dict, *, dry_run: bool = True) -> str:
 
 
 def _snapshot_group(subject: dict) -> str:
-    series = subject["series_id"]
-    if series.startswith(("US.CPI.", "US.PCE.", "US.PPI.")):
+    series = subject["series_id"].partition(".")[2]
+    if series.startswith(("CPI.", "HICP.", "PCE.", "PPI.")):
         return "Инфляция"
-    if series in {"US.NFP.CHANGE", "US.UNEMPLOYMENT.RATE", "US.ECI.QOQ", "US.JOBLESS.INITIAL.CLAIMS"}:
+    if series in {"NFP.CHANGE", "UNEMPLOYMENT.RATE", "ECI.QOQ", "JOBLESS.INITIAL.CLAIMS"}:
         return "Рынок труда"
-    if series.startswith(("US.GDP.", "US.RETAIL.", "US.ISM.")):
+    if series.startswith(("GDP.", "RETAIL.", "ISM.", "INDUSTRIAL.", "PMI.", "NBS.", "CAIXIN.", "SP_GLOBAL.")):
         return "Экономический рост"
-    if series.startswith("US.FED."):
+    if series.startswith("FED."):
         return "Ставка ФРС"
+    if series.startswith(("ECB.", "CBR.", "PBOC.")):
+        return "Ставки центробанков"
     return "Другие показатели"
 
 
@@ -205,8 +212,26 @@ def _snapshot_chunks(title: str, blocks: list[tuple[str, str]], footer: str) -> 
 
 
 def render_snapshot_messages(observations: list[dict], *, at=None, dry_run=False) -> list[str]:
-    """All saved macro coverage and quotes, with pending releases kept separate."""
+    """Country-specific pages; pending releases remain separate from actuals."""
     now = instant(at) if isinstance(at, str) else at or datetime.now(timezone.utc)
+    countries = {}
+    for item in observations:
+        subject = item["subject"]
+        # The currently configured prediction-market scenario concerns the Fed.
+        country = subject["country"] if subject["kind"] == "macro" else "US"
+        countries.setdefault(country, []).append(item)
+    if not countries:
+        return _render_country_snapshot([], now=now, dry_run=dry_run, country_name="")
+    order = {country: index for index, country in enumerate(COUNTRY_LABELS)}
+    messages = []
+    for country in sorted(countries, key=lambda code: (order.get(code, len(order)), code)):
+        messages.extend(_render_country_snapshot(countries[country], now=now, dry_run=dry_run,
+                                                country_name=COUNTRY_LABELS.get(country, country)))
+    return messages
+
+
+def _render_country_snapshot(observations: list[dict], *, now: datetime, dry_run: bool, country_name: str) -> list[str]:
+    """Select and paginate one country's complete source observations."""
     published, calendar, scenarios = {}, {}, {}
     for item in observations:
         subject, values = item["subject"], item["values"]
@@ -215,7 +240,7 @@ def render_snapshot_messages(observations: list[dict], *, at=None, dry_run=False
                 continue
             is_published = values["actual"] is not None
             selected = published if is_published else calendar
-            key = subject["series_id"]
+            key = (subject["country"], subject["series_id"])
             if key not in selected or _snapshot_rank(item, now, is_published) < _snapshot_rank(selected[key], now, is_published):
                 selected[key] = item
         else:
@@ -225,11 +250,14 @@ def render_snapshot_messages(observations: list[dict], *, at=None, dry_run=False
                 scenarios[key] = item
     footer = "<i>Снимок сохранённых данных, не новый релиз.</i>\nНа " + date_text(now)
     period_note = "\nГде отчётный период не указан, источник его не сообщает."
-    marker = "🧪 Тест · синтетические данные" if dry_run else "📊 Макросводка США"
+    marker = "🧪 Тест · синтетические данные" if dry_run else "📊 Макросводка"
+    if country_name:
+        marker += " · " + text(country_name)
     messages = []
     if published or scenarios:
         blocks = []
-        group_order = {"Инфляция": 0, "Рынок труда": 1, "Экономический рост": 2, "Ставка ФРС": 3, "Другие показатели": 4}
+        group_order = {"Инфляция": 0, "Рынок труда": 1, "Экономический рост": 2,
+                       "Ставка ФРС": 3, "Ставки центробанков": 3, "Другие показатели": 4}
         for item in sorted(published.values(), key=lambda item: (group_order[_snapshot_group(item["subject"])], item["subject"]["series_id"])):
             blocks.append((_snapshot_group(item["subject"]), _snapshot_macro_block(item, published=True)))
         for key, item in sorted(scenarios.items()):

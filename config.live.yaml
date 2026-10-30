@@ -23,7 +23,14 @@ providers:
     experimental: true # Undocumented web transport; opt-in explicitly here.
     poll_interval_seconds: 300
     daily_request_budget: 400
-    options: {look_back_days: 2, look_ahead_days: 14}
+    options: {look_back_days: 2, look_ahead_days: 14, countries: [US, CN, EA]}
+  cbr:
+    adapter: cbr_web
+    enabled: true
+    experimental: true # Public official HTML pages; no forecast data.
+    poll_interval_seconds: 900
+    daily_request_budget: 300 # Two page requests per fetch.
+    options: {}
   polymarket:
     adapter: polymarket
     enabled: true
@@ -80,3 +87,42 @@ rules:
     max_observation_age_seconds: 300
     max_spread_pp: '5'
     min_liquidity_usd: '10000'
+
+  - id: regional-results-mql5
+    enabled: true
+    provider_ids: ["mql5_web"]
+    event_types: ["macro.release", "macro.revised"]
+    series_ids: ["CN.CPI.HEADLINE.MOM", "CN.CPI.HEADLINE.YOY", "CN.PPI.HEADLINE.YOY", "CN.GDP.QOQ", "CN.GDP.YOY", "CN.NBS.MANUFACTURING.PMI", "CN.NBS.NON_MANUFACTURING.PMI", "CN.INDUSTRIAL.PRODUCTION.YOY", "CN.RETAIL.HEADLINE.YOY", "CN.UNEMPLOYMENT.RATE", "EA.HICP.HEADLINE.MOM", "EA.HICP.HEADLINE.YOY", "EA.HICP.CORE.MOM", "EA.HICP.CORE.YOY", "EA.GDP.QOQ", "EA.GDP.YOY", "EA.UNEMPLOYMENT.RATE", "EA.RETAIL.HEADLINE.MOM", "EA.INDUSTRIAL.PRODUCTION.MOM", "EA.ECB.DEPOSIT.RATE", "EA.ECB.MAIN_REFINANCING.RATE", "EA.SP_GLOBAL.MANUFACTURING.PMI", "EA.SP_GLOBAL.SERVICES.PMI", "EA.SP_GLOBAL.COMPOSITE.PMI"]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null
+
+  - id: regional-forecasts-mql5
+    enabled: true
+    provider_ids: ["mql5_web"]
+    event_types: ["macro.forecast_changed"]
+    series_ids: ["CN.CPI.HEADLINE.MOM", "CN.CPI.HEADLINE.YOY", "CN.PPI.HEADLINE.YOY", "CN.GDP.QOQ", "CN.GDP.YOY", "CN.NBS.MANUFACTURING.PMI", "CN.NBS.NON_MANUFACTURING.PMI", "CN.INDUSTRIAL.PRODUCTION.YOY", "CN.RETAIL.HEADLINE.YOY", "CN.UNEMPLOYMENT.RATE", "EA.HICP.HEADLINE.MOM", "EA.HICP.HEADLINE.YOY", "EA.HICP.CORE.MOM", "EA.HICP.CORE.YOY", "EA.GDP.QOQ", "EA.GDP.YOY", "EA.UNEMPLOYMENT.RATE", "EA.RETAIL.HEADLINE.MOM", "EA.INDUSTRIAL.PRODUCTION.MOM", "EA.ECB.DEPOSIT.RATE", "EA.ECB.MAIN_REFINANCING.RATE", "EA.SP_GLOBAL.MANUFACTURING.PMI", "EA.SP_GLOBAL.SERVICES.PMI", "EA.SP_GLOBAL.COMPOSITE.PMI"]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null
+
+  - id: russia-results-cbr
+    enabled: true
+    provider_ids: ["cbr"]
+    event_types: ["macro.release", "macro.revised"]
+    series_ids: ["RU.CBR.KEY_RATE", "RU.CPI.HEADLINE.YOY"]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null

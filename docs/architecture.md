@@ -1,6 +1,6 @@
 # Архитектура MVP
 
-Статус на 30 октября 2026: Работают fixture replay, live XOOMAR/MQL5/Polymarket, SQLite, detector, правила, Telegram sender, CLI и Docker.
+Статус на 30 октября 2026: Работают fixture replay, live XOOMAR/MQL5/CBR/Polymarket, SQLite, detector, правила, Telegram sender, CLI и Docker.
 
 ```mermaid
 flowchart LR
@@ -64,3 +64,10 @@ P1 dry-run сохраняет message_text/evaluation context до commit и п�
 Live реализован в `src/macro_event_alerts/live.py`: request budget резервируется до HTTP, затем observations/events/outbox/provider checkpoint фиксируются одной транзакцией. Sending фиксируется до вызова Telegram, ack/retry — после. Последний sending после crash становится ambiguous либо dead_letter при исчерпанных 10 попытках. Destination фиксируется в outbox и фильтруется при отправке; изменение chat ID не перенаправляет старые сообщения.
 
 Health v2 не сканирует таблицы; он проверяет schema, heartbeat, доступность Telegram и наличие недавнего успешного источника. Подробные ошибки каждого провайдера и счётчики доступны в status.
+
+
+## География источников
+
+MQL5 использует явный каталог US/CN/EA: source Country ID, валюта, URL path и canonical series сверяются вместе. Одинаковый slug не объединяет страны; GDP CN/EA не annualized. Текущая конфигурация включает CN/EA дополнительно к США без увеличения количества MQL5-запросов. EA — агрегат еврозоны, не EU27 или отдельная страна.
+
+Россия использует отдельный cbr_web: два официальных HTML-документа на fetch, два запроса заранее резервируются в бюджете, polling900секунд. Forecast отсутствует. Новое решение ставки сравнивается с подтверждённым pending-заседанием; CPI без дорелизного календаря создаёт release для строго нового месяца после существующего live CPI baseline. Первый месяц, более старый период и backfill не порождают такой алерт. Timestamp footer без timezone остаётся неизвестным; явно указанное время следующего заседания МСК преобразуется в UTC. Страницы ручной сводки разделены по странам и имеют независимую нумерацию.
