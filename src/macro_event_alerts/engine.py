@@ -31,6 +31,14 @@ def _event(observation: dict, event_type: str, state_version: int, payload: dict
     }
 
 
+def release_event(observation: dict, state_version: int) -> dict:
+    return _event(observation, "macro.release", state_version, {
+        key: observation["values"][key]
+        for key in ("actual", "forecast", "previous", "previous_reference_period",
+                    "forecast_origin", "scheduled_at", "published_at")
+    })
+
+
 def detect(
     previous: dict | None,
     observation: dict,
@@ -76,14 +84,7 @@ def detect(
     published_before = before["publication_status"] == "published" and before["actual"] is not None
     published_after = after["publication_status"] == "published" and after["actual"] is not None
     if published_after and not published_before:
-        payload = {
-            key: after[key]
-            for key in (
-                "actual", "forecast", "previous", "previous_reference_period",
-                "forecast_origin", "scheduled_at", "published_at",
-            )
-        }
-        return [_event(observation, "macro.release", state_version, payload)]
+        return [release_event(observation, state_version)]
     if published_before and published_after and _different(before["actual"], after["actual"]):
         return [_event(observation, "macro.revised", state_version, {
             "before_actual": before["actual"],

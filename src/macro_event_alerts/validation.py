@@ -94,8 +94,8 @@ def config_semantics(config: dict) -> list[str]:
     known = set(config["providers"])
     seen = set()
     for provider_id, provider in config["providers"].items():
-        if provider["adapter"] == "mql5_web" and not provider["experimental"]:
-            errors.append(f"mql5_web must be experimental: {provider_id}")
+        if provider["adapter"] in {"mql5_web", "cbr_web"} and not provider["experimental"]:
+            errors.append(f"{provider['adapter']} must be experimental: {provider_id}")
     for rule in config["rules"]:
         if rule["id"] in seen:
             errors.append(f"duplicate rule ID: {rule['id']}")

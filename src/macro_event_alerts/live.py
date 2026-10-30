@@ -110,7 +110,7 @@ class LiveWorker:
                 continue
             date = now.date().isoformat()
             used = row["requests_today"] if row["request_date"] == date else 0
-            cost = 2 if settings["adapter"] == "polymarket" else 1
+            cost = 2 if settings["adapter"] in {"polymarket", "cbr_web"} else 1
             if used + cost > settings["daily_request_budget"]:
                 midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
                 with self.store.transaction():
