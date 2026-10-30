@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "event_id": "00000000-0000-0000-0000-000000000004",
+  "event_type": "scenario.probability_changed",
+  "subject_key": "55b6a5dc6d153d2aec3ed93d6c4769519f044bc0ec1c4fdf1ce5ed69e0454317",
+  "state_version": 4,
+  "source": {
+    "provider_id": "fixture",
+    "source_record_id": "synthetic-scenario-001",
+    "source_revision": null,
+    "source_url": "https://example.com/synthetic/source",
+    "source_updated_at": "2026-10-14T13:30:59Z",
+    "declared_delay_seconds": null
+  },
+  "observed_at": "2026-10-14T13:31:00Z",
+  "observation_id": "00000000-0000-0000-0000-000000000068",
+  "subject": {
+    "kind": "scenario",
+    "contract_id": "synthetic-fed-meeting-december",
+    "outcome_id": "synthetic-cut-25bp",
+    "label": "Synthetic: Fed cuts 25 bp at December meeting",
+    "horizon_at": "2026-12-31T23:59:59Z",
+    "resolution_url": "https://example.com/synthetic/resolution",
+    "resolution_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "price_basis": "midpoint"
+  },
+  "is_backfill": false,
+  "payload": {
+    "before": "0.55",
+    "after": "0.75",
+    "delta_pp": "20",
+    "before_observed_at": "2026-10-14T12:31:00Z",
+    "after_observed_at": "2026-10-14T13:31:00Z",
+    "before_sample_at": "2026-10-14T12:30:59Z",
+    "after_sample_at": "2026-10-14T13:30:59Z",
+    "best_bid": "0.74",
+    "best_ask": "0.76",
+    "liquidity_usd": "50000"
+  }
+}

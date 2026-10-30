@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "observation_id": "00000000-0000-0000-0000-000000000068",
+  "source": {
+    "provider_id": "fixture",
+    "source_record_id": "synthetic-001",
+    "source_revision": null,
+    "source_url": "https://example.com/synthetic/source",
+    "source_updated_at": "2026-10-14T12:30:00Z",
+    "declared_delay_seconds": null
+  },
+  "observed_at": "2026-10-14T12:31:00Z",
+  "raw_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "is_backfill": false,
+  "subject": {
+    "kind": "scenario",
+    "contract_id": "synthetic-fed-meeting-december",
+    "outcome_id": "synthetic-cut-25bp",
+    "label": "Synthetic: Fed cuts 25 bp at December meeting",
+    "horizon_at": "2026-12-31T23:59:59Z",
+    "resolution_url": "https://example.com/synthetic/resolution",
+    "resolution_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "price_basis": "midpoint"
+  },
+  "values": {
+    "probability": "0.75",
+    "sample_at": "2026-10-14T12:30:59Z",
+    "best_bid": "0.74",
+    "best_ask": "0.76",
+    "liquidity_usd": "50000",
+    "market_status": "open"
+  }
+}

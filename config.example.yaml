@@ -1,0 +1,77 @@
+# Draft contract example; runtime and adapters are not implemented yet.
+schema_version: '1.0'
+service:
+  state_path: /data/state.db
+  bootstrap_mode: baseline_only
+  locale: ru
+telegram:
+  bot_token_env: TELEGRAM_BOT_TOKEN
+  chat_id_env: TELEGRAM_CHAT_ID
+  message_thread_id_env: TELEGRAM_MESSAGE_THREAD_ID
+  dry_run: true
+providers:
+  xoomar:
+    adapter: xoomar
+    enabled: true
+    experimental: false
+    poll_interval_seconds: 600
+    daily_request_budget: 300
+    options: {countries: [US]}
+  fxmacrodata:
+    adapter: fxmacrodata
+    enabled: false
+    experimental: false
+    poll_interval_seconds: 3600
+    daily_request_budget: 80 # Budget covers ALL series, retries, metadata and pagination.
+    options: {currencies: [USD]}
+  mql5_web:
+    adapter: mql5_web
+    enabled: false
+    experimental: true
+    poll_interval_seconds: 300
+    daily_request_budget: 250
+    options: {currencies: [USD]}
+  polymarket:
+    adapter: polymarket
+    enabled: false # Enable only after validating exact market/outcome and resolution rules.
+    experimental: false
+    poll_interval_seconds: 60
+    daily_request_budget: 2000
+    options: {markets: []}
+rules:
+  - id: us-macro-releases
+    enabled: true
+    provider_ids: [xoomar]
+    event_types: [macro.release, macro.revised]
+    series_ids: [US.CPI.HEADLINE.YOY, US.CPI.CORE.YOY, US.PCE.HEADLINE.YOY, US.PCE.CORE.YOY, US.NFP.CHANGE, US.UNEMPLOYMENT.RATE, US.GDP.QOQ.ANNUALIZED, US.FED.TARGET.MIDPOINT]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 300
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null
+  - id: forecast-updates
+    enabled: false
+    provider_ids: [mql5_web]
+    event_types: [macro.forecast_changed]
+    series_ids: [US.CPI.HEADLINE.YOY, US.PCE.CORE.YOY, US.NFP.CHANGE]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 300
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 3600
+    max_spread_pp: null
+    min_liquidity_usd: null
+  - id: scenario-repricing
+    enabled: false
+    provider_ids: [polymarket]
+    event_types: [scenario.probability_changed]
+    series_ids: []
+    contract_ids: [REPLACE_WITH_VERIFIED_MARKET_ID]
+    min_change_pp: '10'
+    cooldown_seconds: 300
+    comparison_window_seconds: 3600
+    max_observation_age_seconds: 300
+    max_spread_pp: '5'
+    min_liquidity_usd: '10000'

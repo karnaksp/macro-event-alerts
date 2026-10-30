@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "files": {},
+  "relations": [
+    {
+      "source": "events.spec.md",
+      "target": "product.prd.md",
+      "type": "implements"
+    },
+    {
+      "source": "providers-and-rules.spec.md",
+      "target": "product.prd.md",
+      "type": "implements"
+    },
+    {
+      "source": "telegram-delivery.spec.md",
+      "target": "product.prd.md",
+      "type": "implements"
+    },
+    {
+      "source": "implementation.plan.md",
+      "target": "events.spec.md",
+      "type": "implements"
+    },
+    {
+      "source": "implementation.plan.md",
+      "target": "providers-and-rules.spec.md",
+      "type": "implements"
+    },
+    {
+      "source": "implementation.plan.md",
+      "target": "telegram-delivery.spec.md",
+      "type": "implements"
+    }
+  ]
+}

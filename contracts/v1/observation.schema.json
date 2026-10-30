@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://karnaksp.github.io/macro-event-alerts/contracts/v1/observation.schema.json",
+  "title": "Normalized provider observation v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/instant"
+        },
+        "raw_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "is_backfill": {
+          "type": "boolean"
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/macro_subject"
+        },
+        "values": {
+          "$ref": "common.schema.json#/$defs/macro_values"
+        }
+      },
+      "required": [
+        "schema_version",
+        "observation_id",
+        "source",
+        "observed_at",
+        "raw_sha256",
+        "is_backfill",
+        "subject",
+        "values"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/instant"
+        },
+        "raw_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "is_backfill": {
+          "type": "boolean"
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/scenario_subject"
+        },
+        "values": {
+          "$ref": "common.schema.json#/$defs/scenario_values"
+        }
+      },
+      "required": [
+        "schema_version",
+        "observation_id",
+        "source",
+        "observed_at",
+        "raw_sha256",
+        "is_backfill",
+        "subject",
+        "values"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

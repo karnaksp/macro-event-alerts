@@ -1,0 +1,304 @@
+[
+  {
+    "name": "missing measurement unit",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "subject",
+          "unit"
+        ],
+        "remove": true
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "actual null cannot be a release",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "actual"
+        ],
+        "value": null
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "float instead of Decimal string",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "actual"
+        ],
+        "value": 3.1
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "forecast null is not a before value",
+    "fixture": "examples/events/macro.forecast_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "before"
+        ],
+        "value": null
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "probability above one",
+    "fixture": "examples/events/scenario.probability_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "after"
+        ],
+        "value": "1.01"
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "probability below zero",
+    "fixture": "examples/events/scenario.probability_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "after"
+        ],
+        "value": "-0.01"
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "missing source provenance",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "source"
+        ],
+        "remove": true
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "invalid timestamp",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "observed_at"
+        ],
+        "value": "yesterday"
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "non-UTC timestamp",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "observed_at"
+        ],
+        "value": "2026-10-14T14:31:00+02:00"
+      }
+    ],
+    "expected": "schema"
+  },
+  {
+    "name": "same forecast is not a change",
+    "fixture": "examples/events/macro.forecast_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "before"
+        ],
+        "value": "3.0"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "20pp is not 0.20pp",
+    "fixture": "examples/events/scenario.probability_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "delta_pp"
+        ],
+        "value": "0.20"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "identity mismatch",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "subject",
+          "reference_period"
+        ],
+        "value": "2026-10"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "midpoint requires current book",
+    "fixture": "examples/events/scenario.probability_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "best_bid"
+        ],
+        "value": null
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "observation times reversed",
+    "fixture": "examples/events/macro.forecast_changed.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "before_observed_at"
+        ],
+        "value": "2026-10-13T12:00:00Z"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "unknown provider in config",
+    "fixture": "config.example.yaml",
+    "schema": "config.schema.json",
+    "patches": [
+      {
+        "path": [
+          "rules",
+          0,
+          "provider_ids"
+        ],
+        "value": [
+          "absent"
+        ]
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "duplicate rule id",
+    "fixture": "config.example.yaml",
+    "schema": "config.schema.json",
+    "patches": [
+      {
+        "path": [
+          "rules",
+          1,
+          "id"
+        ],
+        "value": "us-macro-releases"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "scenario sample from the future",
+    "fixture": "examples/observations/scenario.json",
+    "schema": "observation.schema.json",
+    "patches": [
+      {
+        "path": [
+          "values",
+          "sample_at"
+        ],
+        "value": "2026-10-14T12:32:00Z"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "crossed book observation",
+    "fixture": "examples/observations/scenario.json",
+    "schema": "observation.schema.json",
+    "patches": [
+      {
+        "path": [
+          "values",
+          "best_bid"
+        ],
+        "value": "0.90"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "inconsistent midpoint observation",
+    "fixture": "examples/observations/scenario.json",
+    "schema": "observation.schema.json",
+    "patches": [
+      {
+        "path": [
+          "values",
+          "probability"
+        ],
+        "value": "0.80"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "MQL5 web cannot claim stable status",
+    "fixture": "config.example.yaml",
+    "schema": "config.schema.json",
+    "patches": [
+      {
+        "path": [
+          "providers",
+          "mql5_web",
+          "experimental"
+        ],
+        "value": false
+      }
+    ],
+    "expected": "semantic"
+  }
+]

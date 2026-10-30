@@ -1,0 +1,446 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://karnaksp.github.io/macro-event-alerts/contracts/v1/event.schema.json",
+  "title": "Canonical domain event v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "macro.release"
+        },
+        "subject_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/instant"
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/macro_subject"
+        },
+        "is_backfill": {
+          "type": "boolean"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "actual": {
+              "$ref": "common.schema.json#/$defs/decimal"
+            },
+            "forecast": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "previous": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/decimal"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "previous_reference_period": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "forecast_origin": {
+              "enum": [
+                "consensus",
+                "model",
+                "official_projection",
+                "unknown"
+              ]
+            },
+            "scheduled_at": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/instant"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "published_at": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/instant"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "actual",
+            "forecast",
+            "previous",
+            "previous_reference_period",
+            "forecast_origin",
+            "scheduled_at",
+            "published_at"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "subject_key",
+        "state_version",
+        "source",
+        "observed_at",
+        "observation_id",
+        "subject",
+        "is_backfill",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "macro.forecast_changed"
+        },
+        "subject_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/instant"
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/macro_subject"
+        },
+        "is_backfill": {
+          "type": "boolean"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "$ref": "common.schema.json#/$defs/decimal"
+            },
+            "after": {
+              "$ref": "common.schema.json#/$defs/decimal"
+            },
+            "forecast_origin": {
+              "enum": [
+                "consensus",
+                "model",
+                "official_projection",
+                "unknown"
+              ]
+            },
+            "before_observed_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "after_observed_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "scheduled_at": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/instant"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "before",
+            "after",
+            "forecast_origin",
+            "before_observed_at",
+            "after_observed_at",
+            "scheduled_at"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "subject_key",
+        "state_version",
+        "source",
+        "observed_at",
+        "observation_id",
+        "subject",
+        "is_backfill",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "macro.revised"
+        },
+        "subject_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/instant"
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/macro_subject"
+        },
+        "is_backfill": {
+          "type": "boolean"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "before_actual": {
+              "$ref": "common.schema.json#/$defs/decimal"
+            },
+            "after_actual": {
+              "$ref": "common.schema.json#/$defs/decimal"
+            },
+            "before_observed_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "after_observed_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "original_release_event_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "before_actual",
+            "after_actual",
+            "before_observed_at",
+            "after_observed_at",
+            "original_release_event_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "subject_key",
+        "state_version",
+        "source",
+        "observed_at",
+        "observation_id",
+        "subject",
+        "is_backfill",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "scenario.probability_changed"
+        },
+        "subject_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/instant"
+        },
+        "observation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/scenario_subject"
+        },
+        "is_backfill": {
+          "type": "boolean"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "$ref": "common.schema.json#/$defs/probability"
+            },
+            "after": {
+              "$ref": "common.schema.json#/$defs/probability"
+            },
+            "delta_pp": {
+              "$ref": "common.schema.json#/$defs/decimal"
+            },
+            "before_observed_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "after_observed_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "before_sample_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "after_sample_at": {
+              "$ref": "common.schema.json#/$defs/instant"
+            },
+            "best_bid": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/probability"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "best_ask": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/probability"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "liquidity_usd": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "before",
+            "after",
+            "delta_pp",
+            "before_observed_at",
+            "after_observed_at",
+            "before_sample_at",
+            "after_sample_at",
+            "best_bid",
+            "best_ask",
+            "liquidity_usd"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "subject_key",
+        "state_version",
+        "source",
+        "observed_at",
+        "observation_id",
+        "subject",
+        "is_backfill",
+        "payload"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

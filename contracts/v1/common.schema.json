@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://karnaksp.github.io/macro-event-alerts/contracts/v1/common.schema.json",
+  "title": "Macro Event Alerts v1 shared definitions",
+  "$defs": {
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+    },
+    "probability": {
+      "type": "string",
+      "pattern": "^(?:0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "source_updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declared_delay_seconds": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "provider_id",
+        "source_record_id",
+        "source_revision",
+        "source_url",
+        "source_updated_at",
+        "declared_delay_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "macro_subject": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "macro"
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "series_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "release_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_period": {
+          "type": "string",
+          "minLength": 1
+        },
+        "frequency": {
+          "enum": [
+            "monthly",
+            "quarterly",
+            "annual",
+            "meeting",
+            "weekly"
+          ]
+        },
+        "adjustment": {
+          "enum": [
+            "seasonally_adjusted",
+            "not_adjusted",
+            "unknown"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "percent",
+            "index",
+            "persons",
+            "usd",
+            "other"
+          ]
+        },
+        "scale": {
+          "enum": [
+            "units",
+            "thousands",
+            "millions",
+            "billions"
+          ]
+        },
+        "transformation": {
+          "enum": [
+            "reported",
+            "level_to_change",
+            "index_to_mom",
+            "index_to_yoy"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "country",
+        "currency",
+        "series_id",
+        "label",
+        "release_key",
+        "reference_period",
+        "frequency",
+        "adjustment",
+        "unit",
+        "scale",
+        "transformation"
+      ],
+      "additionalProperties": false
+    },
+    "scenario_subject": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "scenario"
+        },
+        "contract_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "horizon_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "resolution_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "resolution_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "price_basis": {
+          "enum": [
+            "midpoint",
+            "last_trade",
+            "provider_probability"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "contract_id",
+        "outcome_id",
+        "label",
+        "horizon_at",
+        "resolution_url",
+        "resolution_hash",
+        "price_basis"
+      ],
+      "additionalProperties": false
+    },
+    "macro_values": {
+      "type": "object",
+      "properties": {
+        "publication_status": {
+          "enum": [
+            "scheduled",
+            "published",
+            "cancelled"
+          ]
+        },
+        "scheduled_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actual": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "forecast": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "previous_reference_period": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "forecast_origin": {
+          "enum": [
+            "consensus",
+            "model",
+            "official_projection",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "publication_status",
+        "scheduled_at",
+        "published_at",
+        "actual",
+        "forecast",
+        "previous",
+        "previous_reference_period",
+        "forecast_origin"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "publication_status": {
+                "const": "published"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "actual": {
+                "type": "string",
+                "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scenario_values": {
+      "type": "object",
+      "properties": {
+        "probability": {
+          "type": "string",
+          "pattern": "^(?:0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+        },
+        "sample_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "best_bid": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "best_ask": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "liquidity_usd": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "market_status": {
+          "enum": [
+            "open",
+            "closed",
+            "resolved"
+          ]
+        }
+      },
+      "required": [
+        "probability",
+        "sample_at",
+        "best_bid",
+        "best_ask",
+        "liquidity_usd",
+        "market_status"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://karnaksp.github.io/macro-event-alerts/contracts/v1/config.schema.json",
+  "title": "Draft service configuration v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "state_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bootstrap_mode": {
+          "const": "baseline_only"
+        },
+        "locale": {
+          "const": "ru"
+        }
+      },
+      "required": [
+        "state_path",
+        "bootstrap_mode",
+        "locale"
+      ],
+      "additionalProperties": false
+    },
+    "telegram": {
+      "type": "object",
+      "properties": {
+        "bot_token_env": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chat_id_env": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_thread_id_env": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dry_run": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "bot_token_env",
+        "chat_id_env",
+        "message_thread_id_env",
+        "dry_run"
+      ],
+      "additionalProperties": false
+    },
+    "providers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "adapter": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "experimental": {
+            "type": "boolean"
+          },
+          "poll_interval_seconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "daily_request_budget": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "options": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "adapter",
+          "enabled",
+          "experimental",
+          "poll_interval_seconds",
+          "daily_request_budget",
+          "options"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "provider_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "event_types": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "macro.release",
+                "macro.forecast_changed",
+                "macro.revised",
+                "scenario.probability_changed"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "series_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "contract_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "min_change_pp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comparison_window_seconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_observation_age_seconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_spread_pp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "min_liquidity_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "enabled",
+          "provider_ids",
+          "event_types",
+          "series_ids",
+          "contract_ids",
+          "min_change_pp",
+          "comparison_window_seconds",
+          "max_observation_age_seconds",
+          "max_spread_pp",
+          "min_liquidity_usd",
+          "cooldown_seconds"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "service",
+    "telegram",
+    "providers",
+    "rules"
+  ],
+  "additionalProperties": false
+}

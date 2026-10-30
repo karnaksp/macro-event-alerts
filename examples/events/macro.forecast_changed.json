@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "event_id": "00000000-0000-0000-0000-000000000002",
+  "event_type": "macro.forecast_changed",
+  "subject_key": "cbd3cd38e4426337514fd6255289e2d532dd8216215a4a83d090cdf4e701e33e",
+  "state_version": 2,
+  "source": {
+    "provider_id": "fixture",
+    "source_record_id": "synthetic-001",
+    "source_revision": null,
+    "source_url": "https://example.com/synthetic/source",
+    "source_updated_at": "2026-10-13T11:00:00Z",
+    "declared_delay_seconds": null
+  },
+  "observed_at": "2026-10-13T11:00:00Z",
+  "observation_id": "00000000-0000-0000-0000-000000000066",
+  "subject": {
+    "kind": "macro",
+    "country": "US",
+    "currency": "USD",
+    "series_id": "US.CPI.HEADLINE.YOY",
+    "label": "US CPI YoY — synthetic",
+    "release_key": "synthetic-cpi-2026-09",
+    "reference_period": "2026-09",
+    "frequency": "monthly",
+    "adjustment": "not_adjusted",
+    "unit": "percent",
+    "scale": "units",
+    "transformation": "reported"
+  },
+  "is_backfill": false,
+  "payload": {
+    "before": "2.9",
+    "after": "3.0",
+    "forecast_origin": "unknown",
+    "before_observed_at": "2026-10-13T10:00:00Z",
+    "after_observed_at": "2026-10-13T11:00:00Z",
+    "scheduled_at": "2026-10-14T12:30:00Z"
+  }
+}
