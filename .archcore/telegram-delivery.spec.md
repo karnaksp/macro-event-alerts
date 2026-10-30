@@ -30,6 +30,10 @@ tags:
 9. WHEN dry_run включён, sender MUST записать подготовленное сообщение без вызова Telegram API.
 10. WHEN renderer формирует сообщение, renderer MUST включить источник, ссылку, значения, единицы, период и доступное время публикации.
 11. WHEN renderer выводит scenario, renderer MUST отобразить источник и оконное изменение из сохранённого evaluation context.
+12. WHEN renderer формирует новое задание, outbox MUST сохранить message_format=HTML; sender MUST передать parse_mode=HTML только для таких заданий. Старые задания без формата остаются plain text.
+13. WHEN sender отправляет или редактирует сообщение, sender MUST отключить превью ссылок. Источник отображается короткой ссылкой; числа и даты локализуются для русского текста, даты показывают CET/CEST (Europe/Podgorica).
+14. WHEN оператор вызывает контрольный снимок, шаблон MUST явно отличать сохранённые значения от нового релиза; отсутствующие отчётные периоды не выводятся из календарных дат.
+15. WHEN renderer показывает цену сценария, сообщение MUST назвать выбранный исход: outcome_label, если доступен, иначе outcome_id. Вопрос рынка сам по себе не определяет исход.
 
 ## Constraints & Invariants
 
@@ -45,7 +49,7 @@ tags:
 
 1. IF HTTP 200 содержит `ok:false`, THEN sender MUST классифицировать ошибку по error_code вместо отметки delivered.
 2. IF token или chat ID отсутствует при live mode, THEN config validator MUST отклонить запуск до первого запроса.
-3. IF template превышает лимит, THEN renderer MUST детерминированно сократить контекст, сохранив факт, источник и ссылку.
+3. IF контекст слишком длинный, THEN renderer MUST детерминированно сократить названия до экранирования, сохранив факт, источник и ссылку. IF готовый HTML всё ещё превышает 4096 UTF-16 units, THEN sender MUST вернуть dead_letter/message_too_long без отправки или обрезания тегов.
 4. IF retry исчерпан, THEN sender MUST оставить задание в dead_letter для ручного повторения.
 5. IF отказал один Telegram-запрос, THEN worker MUST продолжить сбор данных и сохранение очереди.
 

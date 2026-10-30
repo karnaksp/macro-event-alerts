@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 import macro_event_alerts.polymarket as adapter
-from macro_event_alerts.domain import sha256
+from macro_event_alerts.domain import sha256, subject_key
 from macro_event_alerts.validation import Contracts
 
 NOW = datetime(2098, 10, 30, 10, 0, tzinfo=timezone.utc)
@@ -32,14 +32,14 @@ def book():
     }
 
 
-def execute(monkeypatch, *, market=None, orderbook=None):
+def execute(monkeypatch, *, market=None, orderbook=None, outcome="Yes"):
     responses = iter([metadata() if market is None else market, book() if orderbook is None else orderbook])
     calls = []
     def request(url):
         calls.append(url)
         return next(responses)
     monkeypatch.setattr(adapter, "_request_json", request)
-    batch = adapter.fetch("polymarket", {"options": {"market_id": "123456", "outcome": "Yes"}}, now=NOW)
+    batch = adapter.fetch("polymarket", {"options": {"market_id": "123456", "outcome": outcome}}, now=NOW)
     return batch, calls
 
 
@@ -60,7 +60,41 @@ def test_two_public_requests_normalise_actual_book_midpoint(monkeypatch):
     assert item["source"]["source_updated_at"] == item["values"]["sample_at"]
     assert item["observed_at"] == "2098-10-30T10:00:00Z"
     assert item["subject"]["outcome_id"] == "111111"
+    assert item["subject"]["outcome_label"] == "Yes"
     assert item["values"]["liquidity_usd"] == "15000.25"
+
+
+@pytest.mark.parametrize("source_label,requested,token", [
+    ("Yes", "yes", "111111"),
+    ("No", "NO", "222222"),
+    ("Custom <&> outcome", "custom <&> outcome", "111111"),
+])
+def test_outcome_label_matches_selected_token_exactly(monkeypatch, source_label, requested, token):
+    market, orderbook = metadata(), book()
+    market["outcomes"] = [source_label if token == "111111" else "Yes", "No"]
+    orderbook["asset_id"] = token
+    batch, calls = execute(monkeypatch, market=market, orderbook=orderbook, outcome=requested)
+    item = batch.envelopes[0]["observation"]
+    Contracts().validate(item, "observation.schema.json")
+    assert item["subject"]["outcome_id"] == token
+    assert item["subject"]["outcome_label"] == source_label
+    assert parse_qs(urlparse(calls[1]).query) == {"token_id": [token]}
+
+
+def test_outcome_label_is_optional_and_does_not_change_identity(monkeypatch):
+    batch, _ = execute(monkeypatch)
+    item = batch.envelopes[0]["observation"]
+    legacy = {**item, "subject": dict(item["subject"])}
+    legacy["subject"].pop("outcome_label")
+    Contracts().validate(legacy, "observation.schema.json")
+    assert subject_key(item) == subject_key(legacy)
+
+
+def test_duplicate_token_cannot_assign_ambiguous_outcome_label(monkeypatch):
+    market = metadata()
+    market["clobTokenIds"] = '["111111","111111"]'
+    with pytest.raises(RuntimeError, match="polymarket_book_invalid"):
+        execute(monkeypatch, market=market)
 
 
 @pytest.mark.parametrize("field,value", [("active", False), ("closed", True), ("acceptingOrders", False)])

@@ -13,6 +13,7 @@ from pathlib import Path
 from .app import replay_file
 from .config import load_config, telegram_environment
 from .live import LiveWorker
+from .render import render_snapshot
 from .storage import Store, inspect_state, health_state
 from .telegram import TelegramSender
 from .validation import ContractError
@@ -20,32 +21,11 @@ from .validation import ContractError
 
 def snapshot_text(config: dict) -> str:
     """One explicitly requested operational test, visibly different from new releases."""
-    text = ["🟢 Macro Event Alerts: подключение проверено",
-            "Это контрольный снимок, а не новые релизы. Live-алерты включены.",
-            "Источники: " + ", ".join(key for key,value in config["providers"].items() if value["enabled"])]
     uri = Path(config["service"]["state_path"]).resolve().as_uri() + "?mode=ro"
     with sqlite3.connect(uri, uri=True) as conn:
         rows = conn.execute("""SELECT o.body_json FROM subject_state s JOIN observations o ON o.observation_id=s.observation_id
             ORDER BY o.observed_at DESC,o.rowid DESC LIMIT 100""").fetchall()
-    seen = set()
-    published = []
-    for row in rows:
-        item = json.loads(row[0])
-        if item["subject"]["kind"] != "macro" or item["values"]["actual"] is None:
-            continue
-        series = item["subject"]["series_id"]
-        if series in seen:
-            continue
-        seen.add(series)
-        published.append(item)
-    published.sort(key=lambda item: item["values"]["scheduled_at"] or "", reverse=True)
-    for item in published[:3]:
-        subject,values = item["subject"],item["values"]
-        period = "неизвестен" if subject["reference_period"] == "unknown" else subject["reference_period"]
-        text.extend([f"{subject['label']}: {values['actual']} {subject['unit']} ({subject['scale']}); период {period}",
-                     f"Дата календаря: {values['scheduled_at']}; источник: {item['source']['provider_id']}", item["source"]["source_url"]])
-    text.append("История загружена как baseline; повторной рассылки прошлых событий нет.")
-    return "\n".join(text)
+    return render_snapshot([json.loads(row[0]) for row in rows], dry_run=config["telegram"]["dry_run"])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -85,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "telegram-check" or not checked["ok"]:
                 print(json.dumps(checked))
                 return 0 if checked["ok"] else 2
-            result = sender.send(snapshot_text(config))
+            result = sender.send(snapshot_text(config), parse_mode="HTML")
             print(json.dumps({"status": result.status, "message_id": result.message_id, "error_code": result.error_code}))
             return 0 if result.status == "delivered" else 2
         if args.command == "replay":

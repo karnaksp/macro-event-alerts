@@ -121,6 +121,7 @@ def _ingest(store: Store, config: dict, contracts: Contracts, envelope: dict, *,
                 diagnostics.append({"rule_id": rule["id"], "event_id": event["event_id"], "reason": why})
                 continue
             context["rule_version"] = subscription["rule_version"]
+            context["message_format"] = "HTML"
             inserted = store.conn.execute("INSERT OR IGNORE INTO outbox(outbox_id,event_id,subscription_id,destination,status,evaluation_json,message_text,created_at,delivery_mode) VALUES(?,?,?,?,?,?,?,?,?)", (
                 str(uuid4()), event["event_id"], subscription["subscription_id"], subscription["destination"],
                 "pending", canonical(context), render(event, context, dry_run=config["telegram"]["dry_run"]), observation["observed_at"],

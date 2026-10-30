@@ -39,6 +39,7 @@ def synthetic_credentials(monkeypatch):
 class FakeSender:
     def __init__(self, results=None, checks=None):
         self.messages = []
+        self.parse_modes = []
         self.results = list(results or [])
         self.checks = list(checks or [{"ok": True}])
         self.check_count = 0
@@ -50,8 +51,9 @@ class FakeSender:
             self.checks.pop(0)
         return result
 
-    def send(self, text):
+    def send(self, text, *, parse_mode=None):
         self.messages.append(text)
+        self.parse_modes.append(parse_mode)
         if self.results:
             return self.results.pop(0)
         return SendResult("delivered", message_id=str(100 + len(self.messages)))
@@ -122,7 +124,8 @@ def test_live_release_reaches_sender_once_and_restart_keeps_identity(tmp_path):
         assert store.stats()["events"] == 0
         worker.tick(T0 + timedelta(seconds=61))
         assert len(sender.messages) == 1
-        assert "3.1" in sender.messages[0]
+        assert "3,1%" in sender.messages[0]
+        assert sender.parse_modes == ["HTML"]
         assert "СИНТЕТИЧЕСКИЙ REPLAY" not in sender.messages[0]
         saved = store.conn.execute("SELECT event_id,message_id,status FROM outbox").fetchone()
         assert saved["status"] == "delivered"
@@ -133,6 +136,17 @@ def test_live_release_reaches_sender_once_and_restart_keeps_identity(tmp_path):
         assert tuple(store.conn.execute("SELECT event_id,message_id,status FROM outbox").fetchone()) == saved_identity
         assert len(sender.messages) == 1
         assert source.calls == 2
+
+
+def test_old_persisted_message_stays_plain_text(tmp_path):
+    state, ids = queue_from_replay(tmp_path)
+    sender = FakeSender()
+    with Store(state) as store:
+        store.conn.execute("UPDATE outbox SET evaluation_json='{}',message_text=? WHERE outbox_id=?",
+                           ("Saved <value> & source", ids[0]))
+        deliver_outbox(store, sender, now=T0)
+    assert sender.messages == ["Saved <value> & source"]
+    assert sender.parse_modes == [None]
 
 
 def test_429_pauses_all_jobs_and_persists_retry(tmp_path):

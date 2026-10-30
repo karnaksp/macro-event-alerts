@@ -57,7 +57,9 @@ def deliver_outbox(store: Store, sender, *, now: datetime, limit: int = 1, desti
         with store.transaction():
             store.conn.execute("UPDATE outbox SET status='sending',attempts=?,sending_started_at=? WHERE outbox_id=?",
                                (attempts, utc(now), row["outbox_id"]))
-        result = sender.send(row["message_text"])
+        # Old persisted jobs remain plain text; newly rendered jobs declare HTML.
+        message_format = json.loads(row["evaluation_json"]).get("message_format")
+        result = sender.send(row["message_text"], parse_mode="HTML") if message_format == "HTML" else sender.send(row["message_text"])
         status = result.status
         if attempts >= 10 and status in {"retry", "ambiguous"}:
             status = "dead_letter"

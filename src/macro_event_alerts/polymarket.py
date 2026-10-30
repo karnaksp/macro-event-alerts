@@ -102,6 +102,11 @@ def _token(metadata: dict, requested_outcome: str) -> str:
 def _normalise(provider_id: str, metadata: dict, book: dict, token: str, *, now: datetime) -> dict:
     if not isinstance(book, dict) or str(book.get("asset_id")) != token:
         raise ValueError("book_asset_mismatch")
+    outcomes, token_ids = _array(metadata["outcomes"]), _array(metadata["clobTokenIds"])
+    labels = [label for label, token_id in zip(outcomes, token_ids) if token_id == token]
+    if len(labels) != 1 or not isinstance(labels[0], str) or not labels[0]:
+        raise ValueError("unknown_or_ambiguous_outcome")
+    outcome_label = labels[0]
     condition = metadata.get("conditionId")
     if not isinstance(condition, str) or not condition or book.get("market") != condition:
         raise ValueError("book_market_mismatch")
@@ -150,6 +155,7 @@ def _normalise(provider_id: str, metadata: dict, book: dict, token: str, *, now:
             "kind": "scenario",
             "contract_id": market_id,
             "outcome_id": token,
+            "outcome_label": outcome_label,
             "label": question,
             "horizon_at": utc(end),
             "resolution_url": source_url,

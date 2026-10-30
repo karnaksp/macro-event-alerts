@@ -87,6 +87,16 @@ def _failure(body: object, http_code: int | None = None, retry_header: object = 
     return SendResult("retry", error_code=safe_code)
 
 
+def _message_result(body: dict, expected_id: int | None = None) -> SendResult:
+    result = body.get("result")
+    message_id = result.get("message_id") if isinstance(result, dict) else None
+    if isinstance(message_id, bool) or not isinstance(message_id, int) or message_id <= 0:
+        return SendResult("ambiguous", error_code="invalid_response")
+    if expected_id is not None and message_id != expected_id:
+        return SendResult("ambiguous", error_code="invalid_response")
+    return SendResult("delivered", message_id=str(message_id))
+
+
 class TelegramSender:
     def __init__(self, token: str, chat_id: str, thread_id: str | None = None, *, request: RequestJSON | None = None):
         if not isinstance(token, str) or not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):
@@ -130,24 +140,56 @@ class TelegramSender:
             return None, _failure(body)
         return body, None
 
-    def send(self, text: str) -> SendResult:
+    def _text_payload(self, text: str, parse_mode: str | None) -> dict | SendResult:
+        if parse_mode is not None and parse_mode != "HTML":
+            return SendResult("dead_letter", error_code="invalid_parse_mode")
         if not isinstance(text, str) or not text.strip():
             return SendResult("dead_letter", error_code="invalid_text")
         try:
             text.encode("utf-8")
         except UnicodeError:
             return SendResult("dead_letter", error_code="invalid_text")
-        payload = {"chat_id": self._chat_id, "text": _short_text(text)}
+        # Bound raw HTML conservatively: slicing could split a tag or entity.
+        if parse_mode == "HTML" and sum(2 if ord(ch) > 0xFFFF else 1 for ch in text) > 4096:
+            return SendResult("dead_letter", error_code="message_too_long")
+        payload = {
+            "chat_id": self._chat_id,
+            "text": text if parse_mode == "HTML" else _short_text(text),
+            "link_preview_options": {"is_disabled": True},
+        }
+        if parse_mode is not None:
+            payload["parse_mode"] = parse_mode
+        return payload
+
+    def send(self, text: str, *, parse_mode: str | None = None) -> SendResult:
+        payload = self._text_payload(text, parse_mode)
+        if isinstance(payload, SendResult):
+            return payload
         if self._thread_id is not None:
             payload["message_thread_id"] = self._thread_id
         body, failure = self._call("sendMessage", payload)
         if failure is not None:
             return failure
-        result = body.get("result")
-        message_id = result.get("message_id") if isinstance(result, dict) else None
-        if isinstance(message_id, bool) or not isinstance(message_id, int) or message_id <= 0:
-            return SendResult("ambiguous", error_code="invalid_response")
-        return SendResult("delivered", message_id=str(message_id))
+        return _message_result(body)
+
+    def edit(self, message_id: str, text: str, *, parse_mode: str | None = "HTML") -> SendResult:
+        """Edit a message in this chat without posting a second notification."""
+        if not isinstance(message_id, str) or not re.fullmatch(r"[0-9]+", message_id):
+            return SendResult("dead_letter", error_code="invalid_message_id")
+        try:
+            numeric_id = int(message_id)
+        except ValueError:
+            return SendResult("dead_letter", error_code="invalid_message_id")
+        if numeric_id <= 0:
+            return SendResult("dead_letter", error_code="invalid_message_id")
+        payload = self._text_payload(text, parse_mode)
+        if isinstance(payload, SendResult):
+            return payload
+        payload["message_id"] = numeric_id
+        body, failure = self._call("editMessageText", payload)
+        if failure is not None:
+            return failure
+        return _message_result(body, expected_id=numeric_id)
 
     def check(self) -> dict:
         """Read getMe/getChat without sending; return no token or private chat ID."""

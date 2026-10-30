@@ -29,7 +29,11 @@ def test_success_is_confirmed_by_ok_and_message_id():
     assert result.status == "delivered"
     assert result.message_id == "42"
     assert calls[0][0].endswith("/sendMessage")
-    assert calls[0][1] == {"chat_id": CHAT_ID, "text": "CPI: 3.1% → 3.2%"}
+    assert calls[0][1] == {
+        "chat_id": CHAT_ID,
+        "text": "CPI: 3.1% → 3.2%",
+        "link_preview_options": {"is_disabled": True},
+    }
     assert calls[0][2] > 0
 
 
@@ -45,6 +49,115 @@ def test_plain_text_topic_and_unicode_truncation():
     assert payload["text"].endswith("…")
     assert payload["message_thread_id"] == 7
     assert "parse_mode" not in payload
+    assert payload["link_preview_options"] == {"is_disabled": True}
+
+
+def test_html_is_preserved_with_preview_disabled():
+    calls = []
+    def request(url, payload, timeout):
+        calls.append(payload)
+        return {"ok": True, "result": {"message_id": 1}}
+    text = '<b>CPI &amp; PCE</b>\n<a href="https://example.com/?a=1&amp;b=2">Источник</a>'
+    result = sender(request).send(text, parse_mode="HTML")
+    assert result.status == "delivered"
+    assert calls == [{
+        "chat_id": CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": True},
+    }]
+
+
+@pytest.mark.parametrize("method", ["send", "edit"])
+@pytest.mark.parametrize("parse_mode", ["MarkdownV2", "html", "", True, {}])
+def test_invalid_parse_mode_is_rejected_before_transport(method, parse_mode):
+    def request(*args):
+        pytest.fail("invalid parse mode attempted network")
+    client = sender(request)
+    args = ("1", "test") if method == "edit" else ("test",)
+    result = getattr(client, method)(*args, parse_mode=parse_mode)
+    assert result.status == "dead_letter"
+    assert result.error_code == "invalid_parse_mode"
+
+
+@pytest.mark.parametrize("text", ["<b>" + "a" * 4090 + "</b>", "🔥" * 2049, "&amp;" * 820])
+@pytest.mark.parametrize("method", ["send", "edit"])
+def test_oversized_html_is_rejected_instead_of_cutting_markup(text, method):
+    def request(*args):
+        pytest.fail("oversized HTML attempted network")
+    client = sender(request)
+    args = ("1", text) if method == "edit" else (text,)
+    result = getattr(client, method)(*args, parse_mode="HTML")
+    assert result.status == "dead_letter"
+    assert result.error_code == "message_too_long"
+
+
+def test_html_at_conservative_raw_limit_is_preserved():
+    calls = []
+    def request(url, payload, timeout):
+        calls.append(payload)
+        return {"ok": True, "result": {"message_id": 1}}
+    text = "<b>" + "a" * 4089 + "</b>"
+    assert len(text) == 4096
+    assert sender(request).send(text, parse_mode="HTML").status == "delivered"
+    assert calls[0]["text"] == text
+
+
+def test_edit_updates_same_message_with_html_and_no_preview():
+    calls = []
+    def request(url, payload, timeout):
+        calls.append((url.rsplit("/", 1)[-1], payload))
+        return {"ok": True, "result": {"message_id": 42}}
+    client = TelegramSender(TOKEN, CHAT_ID, "7", request=request)
+    result = client.edit("42", "<b>Мониторинг включён</b>")
+    assert result.status == "delivered"
+    assert result.message_id == "42"
+    assert calls == [("editMessageText", {
+        "chat_id": CHAT_ID,
+        "message_id": 42,
+        "text": "<b>Мониторинг включён</b>",
+        "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": True},
+    })]
+
+
+@pytest.mark.parametrize("message_id", ["0", "-1", "", "4.2", None, 42, True])
+def test_invalid_edit_message_id_is_rejected_locally(message_id):
+    def request(*args):
+        pytest.fail("invalid message ID attempted network")
+    result = sender(request).edit(message_id, "test")
+    assert result.status == "dead_letter"
+    assert result.error_code == "invalid_message_id"
+
+
+@pytest.mark.parametrize("result", [True, None, {}, {"message_id": 43}, {"message_id": True}])
+def test_edit_requires_matching_message_in_success_response(result):
+    outcome = sender(lambda *args: {"ok": True, "result": result}).edit("42", "test")
+    assert outcome.status == "ambiguous"
+    assert outcome.error_code == "invalid_response"
+
+
+def test_edit_reuses_safe_api_failure_and_retry_handling():
+    client = sender(lambda *args: {
+        "ok": False, "error_code": 429,
+        "parameters": {"retry_after": 23}, "description": TOKEN,
+    })
+    result = client.edit("42", "test")
+    assert result.status == "retry"
+    assert result.retry_after_seconds == 23
+    assert TOKEN not in repr(result)
+
+
+def test_edit_can_use_plain_text_and_handles_not_modified_as_permanent_error():
+    calls = []
+    def request(url, payload, timeout):
+        calls.append(payload)
+        return {"ok": False, "error_code": 400, "description": "message is not modified"}
+    result = sender(request).edit("42", "<literal>", parse_mode=None)
+    assert result.status == "dead_letter"
+    assert result.error_code == "telegram_400"
+    assert "parse_mode" not in calls[0]
+    assert calls[0]["text"] == "<literal>"
 
 
 @pytest.mark.parametrize("code,status", [(400, "dead_letter"), (401, "dead_letter"), (403, "dead_letter"), (500, "retry"), (503, "retry")])

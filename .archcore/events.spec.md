@@ -40,6 +40,7 @@ tags:
 - Detector MUST вычислять SHA-256 canonical JSON `subject_key` по provider ID и полям идентичности ниже.
 - Macro identity: kind, country, currency, series_id, release_key, reference_period, frequency, adjustment, unit, scale, transformation.
 - Scenario identity: kind, contract_id, outcome_id, horizon_at, resolution_hash, price_basis.
+- Scenario outcome_label — необязательное точное название исхода из источника для отображения. Оно не входит в identity; старые observations без поля остаются валидными.
 - Canonical JSON: UTF-8, ключи по алфавиту, без пробелов, `ensure_ascii=false`; объект `{provider_id, subject:{identity fields}}`.
 - Detector MUST сравнивать forecast только при одинаковом forecast_origin; новый origin создаёт отдельный baseline прогноза.
 - Ingestion MUST хранить нормализованное время в UTC `Z`, отдельно от времени опроса и торгового сервера.
