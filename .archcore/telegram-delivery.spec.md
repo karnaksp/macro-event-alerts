@@ -13,8 +13,8 @@ tags:
 
 - `@.env.example`: bot token, chat ID и опциональный message_thread_id.
 - `@config.example.yaml`: dry_run и имена переменных окружения.
-- Outbox record: event_id, subscription_id, evaluation_context, destination, status, attempts, next_attempt_at, last_error, message_id; runtime-файл ещё отсутствует.
-- Planned states: pending, sending, retry, delivered, ambiguous, dead_letter.
+- Outbox record: event_id, subscription_id, evaluation_context, destination, status, attempts, next_attempt_at, last_error, message_id; Storage/render: `@src/macro_event_alerts/storage.py`, `@src/macro_event_alerts/render.py`.
+- States: pending, sending, retry, delivered, ambiguous, dead_letter.
 - Внешний интерфейс: [Telegram sendMessage](https://core.telegram.org/bots/api#sendmessage).
 
 ## Normative Behavior
@@ -30,6 +30,13 @@ tags:
 9. WHEN dry_run включён, sender MUST записать подготовленное сообщение без вызова Telegram API.
 10. WHEN renderer формирует сообщение, renderer MUST включить источник, ссылку, значения, единицы, период и доступное время публикации.
 11. WHEN renderer выводит scenario, renderer MUST отобразить источник и оконное изменение из сохранённого evaluation context.
+12. WHEN renderer формирует новое задание, outbox MUST сохранить message_format=HTML; sender MUST передать parse_mode=HTML только для таких заданий. Старые задания без формата остаются plain text.
+13. WHEN sender отправляет или редактирует сообщение, sender MUST отключить превью ссылок. Источник отображается короткой ссылкой; числа и даты локализуются для русского текста, даты показывают CET/CEST (Europe/Podgorica).
+14. WHEN оператор вызывает контрольный снимок, шаблон MUST явно отличать сохранённые значения от нового релиза; отсутствующие отчётные периоды не выводятся из календарных дат.
+15. WHEN renderer показывает цену сценария, сообщение MUST назвать выбранный исход: outcome_label, если доступен, иначе outcome_id. Вопрос рынка сам по себе не определяет исход.
+16. WHEN оператор запрашивает сводку, renderer MUST включить все представленные макросерии и сценарии, а не первые три строки. Последние опубликованные результаты и ожидаемые выпуски выбираются отдельно; cancelled исключены. Факт, прогноз и previous одной строки MUST происходить из одного наблюдения.
+17. WHEN полная сводка не помещается в сообщение, renderer MUST разделить её между целыми HTML-блоками без потери строк и пронумеровать страницы. CLI MUST отправлять страницы последовательно с паузой минимум 3 секунды и останавливаться при первой ошибке; сводка остаётся ручным вызовом.
+18. WHEN в БД есть is_backfill=true, ручная сводка MAY использовать последнее такое наблюдение каждого subject_key как сохранённую историю. Это чтение MUST NOT изменять live baseline, events, outbox или polling checkpoints.
 
 ## Constraints & Invariants
 
@@ -45,11 +52,16 @@ tags:
 
 1. IF HTTP 200 содержит `ok:false`, THEN sender MUST классифицировать ошибку по error_code вместо отметки delivered.
 2. IF token или chat ID отсутствует при live mode, THEN config validator MUST отклонить запуск до первого запроса.
-3. IF template превышает лимит, THEN renderer MUST детерминированно сократить контекст, сохранив факт, источник и ссылку.
+3. IF контекст слишком длинный, THEN renderer MUST детерминированно сократить названия до экранирования, сохранив факт, источник и ссылку. IF готовый HTML всё ещё превышает 4096 UTF-16 units, THEN sender MUST вернуть dead_letter/message_too_long без отправки или обрезания тегов.
 4. IF retry исчерпан, THEN sender MUST оставить задание в dead_letter для ручного повторения.
 5. IF отказал один Telegram-запрос, THEN worker MUST продолжить сбор данных и сохранение очереди.
 
 ## Conformance
 
 Все MUST и состояния проверяются fake Telegram transport до live smoke test; список запланированных отказов хранится в `@docs/acceptance-cases.md`.
-Текущее проектирование не содержит запущенного sender, bot token и проверенной live доставки.
+Live sender реализован в `@src/macro_event_alerts/telegram.py`, очередь/планировщик — в `@src/macro_event_alerts/live.py`. Replay остаётся изолированным от credentials.
+Проверенные состояния включают retry, ambiguous, delivered и dead_letter; ручной operator CLI для dead_letter ещё не реализован.
+Одна явно разрешённая live diagnostic отправка подтверждена API; fake transport проверяет остальные отказы.
+
+Sender MUST фильтровать очередь по сохранённому destination; конфигурация нового чата не перенаправляет старые задания.
+Sender MUST выдерживать паузу минимум 3 секунды между сообщениями текущего чата.

@@ -1,14 +1,14 @@
 # Источники и возможности
 
-Проверено по документации поставщиков 30 октября 2026. Адаптеры ещё не реализованы; наличие API не означает подтверждённое покрытие каждой серии или SLA. Лицензия кода Apache 2.0 не даёт прав на перепубликацию данных поставщиков.
+Проверено по документации поставщиков 30 октября 2026. Реализованы XOOMAR, MQL5 web и Polymarket; остальные адаптеры запланированы; наличие API не означает подтверждённое покрытие каждой серии или SLA. Лицензия кода Apache 2.0 не даёт прав на перепубликацию данных поставщиков.
 
 | Источник | Доступ | Данные | Место в плане / ограничения |
 | --- | --- | --- | --- |
-| [XOOMAR](https://xoomar.com/markets/api/calendar) | Без ключа, опубликовано 10 запросов/мин на IP | actual, prior, расписание | Первый кандидат для бесплатного macro adapter. Consensus отсутствует; обновления могут запаздывать примерно на час и больше. Покрытие каждой серии проверяется отдельно. |
+| [XOOMAR](https://xoomar.com/markets/api/calendar) | Без ключа, опубликовано 10 запросов/мин на IP | actual, prior, расписание | Live adapter включён; Consensus отсутствует; обновления могут запаздывать примерно на час и больше. Покрытие каждой серии проверяется отдельно. |
 | [FXMacroData](https://fxmacrodata.com/documentation/quickstart) | Без ключа: USD, 90 дней, 100 запросов/сутки | Факт и предыдущий результат | Задержка 15 минут; бесплатные прогнозы отсутствуют. Бюджет делится между всеми сериями, повторами и страницами. |
 | [MQL5 Calendar](https://www.mql5.com/en/docs/calendar) | Официальные функции внутри MT5 | actual, forecast, previous, revision | MT5 использует время торгового сервера и scale 10⁶. Это отдельный bridge, а не публичный Linux REST API. |
-| [MQL5 web calendar](https://www.mql5.com/en/economic-calendar) | Общедоступный сайт | Поля календаря и прогнозов | Недокументированный HTTP endpoint `/economic-calendar/content`: эксперимент, отключён по умолчанию, квоты/SLA не подтверждены. Web и MT5 timezone нельзя отождествлять. |
-| [Polymarket](https://docs.polymarket.com/getting-started/api) | Public market data без credentials | Метаданные исходов, цены, стакан | Первый scenario adapter: точный market/outcome ID, правила разрешения, midpoint/last trade, спред и ликвидность. Это рыночная цена отдельного контракта. |
+| [MQL5 web calendar](https://www.mql5.com/en/economic-calendar) | Общедоступный сайт | Поля календаря и прогнозов | Недокументированный HTTP endpoint `/economic-calendar/content`: эксперимент, явно включён в config.live.yaml; квоты/SLA не подтверждены. Web и MT5 timezone нельзя отождествлять. |
+| [Polymarket](https://docs.polymarket.com/getting-started/api) | Public market data без credentials | Метаданные исходов, цены, стакан | Live scenario adapter: точный market/outcome ID, правила разрешения, midpoint/last trade, спред и ликвидность. Это рыночная цена отдельного контракта. |
 | [Kalshi](https://docs.kalshi.com/getting_started/quick_start_market_data) | Несколько публичных REST endpoints без ключа | events, markets, orderbook | Следующий scenario adapter. Не предполагаем анонимный доступ ко всему API или WebSocket. |
 | [BLS](https://www.bls.gov/bls/newsrels.htm), [BEA](https://www.bea.gov/news), [Federal Reserve](https://www.federalreserve.gov/feeds/feeds.htm) | Бесплатные публикации и API/RSS | Официальные факты, пересмотры, решения | Контроль результатов и позднейшие адаптеры. Не дают универсальный consensus; доступность и задержка API отличаются от времени пресс-релиза. |
 | [FRED](https://fred.stlouisfed.org/docs/api/fred/) | Бесплатный API с ключом | История, vintages, series | История/пересмотры; не обещает самый ранний результат и не даёт consensus. Нужны преобразования series. |
@@ -31,3 +31,21 @@ Forecast origin хранится как `consensus`, `model`, `official_projecti
 Целевые серии: CPI/Core CPI, PCE/Core PCE (MoM и YoY — разные ID), NFP monthly change, unemployment, GDP QoQ annualized, решение FOMC. ECI включается после проверки фактических релизов. NFP total employment не подменяет monthly change; ставка midpoint не подменяет диапазон target rate. Сквозной MVP начинается с 2–3 подтверждённых серий и одного проверенного сценария, остальные добавляются по fixtures.
 
 Все JSON в `examples/` синтетические; они не являются текущими результатами статистики или котировками.
+
+Проверка live от 30 октября 2026: 6 XOOMAR, 13 MQL5, 1 Polymarket observation прошли canonical validation внутри контейнера. MQL5 listing не сообщает period: хранится `unknown` и стабильный vendor release ID. Полный отчёт — `docs/live-verification.md`.
+
+
+## Расширение покрытия MQL5
+
+Проверено 30 октября 2026 по страницам самого источника. Добавлены 9 серий; вместе с прежними это 22 MQL5-серии и отдельный XOOMAR midpoint ставки ФРС — всего 23 ряда.
+
+| Ряд | Проверенные страницы MQL5 | Единицы |
+| --- | --- | --- |
+| PPI | [m/m](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-mm), [y/y](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-yy) | %; месяц/год отдельно |
+| Core PPI без еды и энергии | [m/m](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-ex-food-energy-mm), [y/y](https://www.mql5.com/en/economic-calendar/united-states/producer-price-index-ex-food-energy-yy) | %; месяц/год отдельно |
+| Розничные продажи | [m/m](https://www.mql5.com/en/economic-calendar/united-states/retail-sales-mm), [без автомобилей](https://www.mql5.com/en/economic-calendar/united-states/retail-sales-ex-autos-mm) | % за месяц; ex-autos не равен ex-autos-and-gas |
+| Первичные заявки на пособие | [Initial Jobless Claims](https://www.mql5.com/en/economic-calendar/united-states/initial-jobless-claims) | Люди, еженедельно; K/M преобразуются в units |
+| ISM Manufacturing PMI | [Промышленность](https://www.mql5.com/en/economic-calendar/united-states/ism-manufacturing-pmi) | Уровень индекса, ежемесячно |
+| ISM Non-Manufacturing PMI | [Услуги](https://www.mql5.com/en/economic-calendar/united-states/ism-non-manufacturing-pmi) | Уровень индекса, ежемесячно |
+
+Для всех новых рядов включены release/revision и forecast-change правила MQL5. Synthetic fixtures проверяют mapping и единицы; текущий календарь может содержать не все последние факты одновременно. Исторические наблюдения сохраняются с is_backfill=true без изменения live baseline и очереди, но доступны ручной сводке. Неизвестные периоды MQL5 не восстанавливаются по дате релиза.

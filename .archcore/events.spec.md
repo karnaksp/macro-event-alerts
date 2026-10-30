@@ -7,14 +7,15 @@ tags:
 
 ## Purpose & Scope
 
-Контракт нормализованных наблюдений и переходов состояния для адаптеров, detector, правил и renderer. Синтетические примеры задают форму; runtime ещё отсутствует.
+Контракт нормализованных наблюдений и переходов состояния для адаптеров, detector, правил и renderer. Форма проверяется схемами; P1 runtime выполняет offline replay.
 
 ## Surface
 
 - `@contracts/v1/common.schema.json`: числовые значения, время, provenance и субъекты.
 - `@contracts/v1/observation.schema.json`: вход adapter → ingestion.
 - `@contracts/v1/event.schema.json`: выход detector → rules/outbox.
-- `@examples/events/`, `@examples/observations/`: синтетические примеры.
+- `@src/macro_event_alerts/domain.py`, `@src/macro_event_alerts/engine.py`: identity и переходы.
+- `@examples/events/`, `@examples/observations/`, `@examples/replay/`: синтетические примеры.
 - JSON Schema IDs — стабильные идентификаторы; resolver использует локальный registry, публикация GitHub Pages не требуется.
 
 ## Normative Behavior
@@ -39,6 +40,7 @@ tags:
 - Detector MUST вычислять SHA-256 canonical JSON `subject_key` по provider ID и полям идентичности ниже.
 - Macro identity: kind, country, currency, series_id, release_key, reference_period, frequency, adjustment, unit, scale, transformation.
 - Scenario identity: kind, contract_id, outcome_id, horizon_at, resolution_hash, price_basis.
+- Scenario outcome_label — необязательное точное название исхода из источника для отображения. Оно не входит в identity; старые observations без поля остаются валидными.
 - Canonical JSON: UTF-8, ключи по алфавиту, без пробелов, `ensure_ascii=false`; объект `{provider_id, subject:{identity fields}}`.
 - Detector MUST сравнивать forecast только при одинаковом forecast_origin; новый origin создаёт отдельный baseline прогноза.
 - Ingestion MUST хранить нормализованное время в UTC `Z`, отдельно от времени опроса и торгового сервера.
@@ -61,4 +63,6 @@ tags:
 ## Conformance
 
 Соответствие требует всех MUST, схем и инвариантов; форма проверяется `@scripts/validate_contracts.py`, переходы runtime проверяются по `@docs/acceptance-cases.md`.
-Скрипт проверяет форму примеров и часть арифметических инвариантов; транзакции, baseline и порядок снимков пока не реализованы.
+P1 проверяет baseline, порядок, транзакции и crash/restart через `@tests/`; live-provider mappings остаются последующими этапами.
+Ingestion MUST отклонять source_updated_at и published_at позже observed_at: будущая дата не становится baseline.
+Ingestion MUST отклонять actual и published_at для scheduled/cancelled наблюдений.

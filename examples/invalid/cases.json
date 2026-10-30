@@ -300,5 +300,50 @@
       }
     ],
     "expected": "semantic"
+  },
+  {
+    "name": "future source timestamp cannot poison baseline",
+    "fixture": "examples/observations/macro.json",
+    "schema": "observation.schema.json",
+    "patches": [
+      {
+        "path": [
+          "source",
+          "source_updated_at"
+        ],
+        "value": "2099-01-01T00:00:00Z"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "future publication timestamp",
+    "fixture": "examples/events/macro.release.json",
+    "schema": "event.schema.json",
+    "patches": [
+      {
+        "path": [
+          "payload",
+          "published_at"
+        ],
+        "value": "2099-01-01T00:00:00Z"
+      }
+    ],
+    "expected": "semantic"
+  },
+  {
+    "name": "scheduled observation cannot contain an actual",
+    "fixture": "examples/observations/macro.json",
+    "schema": "observation.schema.json",
+    "patches": [
+      {
+        "path": [
+          "values",
+          "publication_status"
+        ],
+        "value": "scheduled"
+      }
+    ],
+    "expected": "schema"
   }
 ]

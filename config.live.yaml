@@ -1,0 +1,82 @@
+# Public read-only APIs; no trading credentials or paid subscriptions.
+schema_version: '1.0'
+service:
+  state_path: /data/state.db
+  bootstrap_mode: baseline_only
+  locale: ru
+telegram:
+  bot_token_env: TELEGRAM_BOT_TOKEN
+  chat_id_env: TELEGRAM_CHAT_ID
+  message_thread_id_env: TELEGRAM_MESSAGE_THREAD_ID
+  dry_run: false
+providers:
+  xoomar:
+    adapter: xoomar
+    enabled: true
+    experimental: false
+    poll_interval_seconds: 600
+    daily_request_budget: 200
+    options: {look_back_days: 2, look_ahead_days: 14}
+  mql5_web:
+    adapter: mql5_web
+    enabled: true
+    experimental: true # Undocumented web transport; opt-in explicitly here.
+    poll_interval_seconds: 300
+    daily_request_budget: 400
+    options: {look_back_days: 2, look_ahead_days: 14}
+  polymarket:
+    adapter: polymarket
+    enabled: true
+    experimental: false
+    poll_interval_seconds: 60
+    daily_request_budget: 3000 # Reserves two requests per metadata + book fetch.
+    options: {market_id: '3215006', outcome: 'Yes'}
+rules:
+  - id: macro-results-xoomar
+    enabled: true
+    provider_ids: [xoomar]
+    event_types: [macro.release, macro.revised]
+    series_ids: [US.CPI.HEADLINE.YOY, US.PCE.HEADLINE.YOY, US.NFP.CHANGE, US.GDP.QOQ.ANNUALIZED, US.FED.TARGET.MIDPOINT]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null
+  - id: macro-results-mql5
+    enabled: true
+    provider_ids: [mql5_web]
+    event_types: [macro.release, macro.revised]
+    series_ids: [US.CPI.HEADLINE.MOM, US.CPI.CORE.MOM, US.CPI.CORE.YOY, US.PCE.HEADLINE.MOM, US.PCE.CORE.MOM, US.PCE.CORE.YOY, US.UNEMPLOYMENT.RATE, US.ECI.QOQ, US.PPI.HEADLINE.MOM, US.PPI.HEADLINE.YOY, US.PPI.CORE.MOM, US.PPI.CORE.YOY, US.RETAIL.HEADLINE.MOM, US.RETAIL.EX_AUTOS.MOM, US.JOBLESS.INITIAL.CLAIMS, US.ISM.MANUFACTURING.PMI, US.ISM.SERVICES.PMI]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null
+  - id: forecast-changes-mql5
+    enabled: true
+    provider_ids: [mql5_web]
+    event_types: [macro.forecast_changed]
+    series_ids: [US.CPI.HEADLINE.MOM, US.CPI.HEADLINE.YOY, US.CPI.CORE.MOM, US.CPI.CORE.YOY, US.PCE.HEADLINE.MOM, US.PCE.HEADLINE.YOY, US.PCE.CORE.MOM, US.PCE.CORE.YOY, US.NFP.CHANGE, US.UNEMPLOYMENT.RATE, US.GDP.QOQ.ANNUALIZED, US.FED.TARGET.UPPER, US.ECI.QOQ, US.PPI.HEADLINE.MOM, US.PPI.HEADLINE.YOY, US.PPI.CORE.MOM, US.PPI.CORE.YOY, US.RETAIL.HEADLINE.MOM, US.RETAIL.EX_AUTOS.MOM, US.JOBLESS.INITIAL.CLAIMS, US.ISM.MANUFACTURING.PMI, US.ISM.SERVICES.PMI]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 86400
+    max_observation_age_seconds: 7200
+    max_spread_pp: null
+    min_liquidity_usd: null
+  - id: fed-december-repricing
+    enabled: true
+    provider_ids: [polymarket]
+    event_types: [scenario.probability_changed]
+    series_ids: []
+    contract_ids: ['3215006']
+    min_change_pp: '5'
+    cooldown_seconds: 1800
+    comparison_window_seconds: 3600
+    max_observation_age_seconds: 300
+    max_spread_pp: '5'
+    min_liquidity_usd: '10000'
