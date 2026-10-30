@@ -1,9 +1,23 @@
-.git
-.env
-.env.*
-.venv
-__pycache__
-data
-*.db
-*.db-wal
-*.db-shm
+# Allow only the files needed for the image. Local credentials and SQLite
+# volumes never enter the build context, including under nested directories.
+**
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!NOTICE
+!src/
+!src/**
+!contracts/
+!contracts/**
+!config.replay.yaml
+!examples/
+!examples/replay/
+!examples/replay/**
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.db
+**/*.db-wal
+**/*.db-shm

@@ -332,6 +332,28 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "publication_status": {
+                "enum": [
+                  "scheduled",
+                  "cancelled"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "actual": {
+                "type": "null"
+              },
+              "published_at": {
+                "type": "null"
+              }
+            }
+          }
         }
       ]
     },

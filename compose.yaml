@@ -1,0 +1,37 @@
+services:
+  replay:
+    image: macro-event-alerts:local
+    build:
+      context: .
+      target: runtime
+    command:
+      - replay
+      - --config
+      - /app/config.replay.yaml
+      - --fixture
+      - /app/examples/replay/demo.jsonl
+      - --follow
+      - --interval
+      - '30'
+    init: true
+    restart: unless-stopped
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16777216
+    volumes:
+      - replay-state:/data
+    stop_grace_period: 10s
+    healthcheck:
+      test: [CMD, macro-event-alerts, health, --state, /data/state.db]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  replay-state:

@@ -13,7 +13,7 @@ tags:
 
 - `@.env.example`: bot token, chat ID и опциональный message_thread_id.
 - `@config.example.yaml`: dry_run и имена переменных окружения.
-- Outbox record: event_id, subscription_id, evaluation_context, destination, status, attempts, next_attempt_at, last_error, message_id; runtime-файл ещё отсутствует.
+- Outbox record: event_id, subscription_id, evaluation_context, destination, status, attempts, next_attempt_at, last_error, message_id; P1 storage/render: `@src/macro_event_alerts/storage.py`, `@src/macro_event_alerts/render.py`.
 - Planned states: pending, sending, retry, delivered, ambiguous, dead_letter.
 - Внешний интерфейс: [Telegram sendMessage](https://core.telegram.org/bots/api#sendmessage).
 
@@ -52,4 +52,4 @@ tags:
 ## Conformance
 
 Все MUST и состояния проверяются fake Telegram transport до live smoke test; список запланированных отказов хранится в `@docs/acceptance-cases.md`.
-Текущее проектирование не содержит запущенного sender, bot token и проверенной live доставки.
+P1 реализует pending → dry_run и renderer; остальные состояния и live sender относятся к P5. P1 не читает credentials и не вызывает Telegram API.

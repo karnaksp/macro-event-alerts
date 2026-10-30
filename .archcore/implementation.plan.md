@@ -7,7 +7,7 @@ tags:
 
 ## Goal
 
-Довести опубликованные контракты до первого запускаемого Docker-релиза с проверенными API-адаптерами и Telegram-доставкой. Этот репозиторий пока фиксирует дизайн; завершение планирования не означает готовность приложения.
+Довести опубликованные контракты до первого запускаемого Docker-релиза с проверенными API-адаптерами и Telegram-доставкой. P1 реализован и проверен; P2–P6 остаются будущей работой. Готовность offline replay не означает готовность live API и Telegram sender.
 
 ## Declared Delta
 
@@ -16,6 +16,9 @@ tags:
 - create — контракт адаптеров и подписок: providers-and-rules.spec.md и пример конфигурации.
 - create — контракт outbox и Telegram: telegram-delivery.spec.md.
 - create — фазовый backlog реализации, критерии приёмки и ограничения источников.
+- create — P1 runtime: `@src/macro_event_alerts/`, `@tests/`, `@config.replay.yaml`, `@examples/replay/`.
+- create — Docker/Compose и runtime CI: `@Dockerfile`, `@compose.yaml`, `@.github/workflows/runtime.yml`.
+- amend — shared validation, timestamp consistency, документация статуса и проверок P1.
 
 ## Tasks
 
@@ -29,9 +32,9 @@ tags:
 
 ### P1 — Сквозной replay и Docker
 
-- [ ] Создать worker, fixture adapter, SQLite migrations, detector, rules engine и dry-run sink; runtime-цель не найдена, файлов приложения пока нет.
-- [ ] Добавить Dockerfile и compose с запускаемым replay, non-root и volume; файлов сборки пока нет, выбрать их при реализации.
-- [ ] Связать replay fixtures с `@examples/`, сценариями `@docs/acceptance-cases.md` и текущими схемами `@contracts/v1/`.
+- [x] Worker/replay, migrations, detector, rules и dry-run: `@src/macro_event_alerts/`; verification: `@tests/`.
+- [x] Docker replay, non-root, read-only FS, state volume: `@Dockerfile`, `@compose.yaml`.
+- [x] Fixtures и границы контрактов связаны: `@examples/replay/demo.jsonl`, `@config.replay.yaml`, `@tests/test_replay.py`, `@tests/test_runtime_boundaries.py`; evidence: `@docs/p1-verification.md`.
 
 ### P2 — Бесплатные результаты макростатистики
 
@@ -79,7 +82,7 @@ tags:
 | P5 | Fake transport transcript с 429/5xx/ok:false/timeout/401/403; журнал восстановления outbox |
 | P6 | Чистая установка, release tag, digest образа, перечень поддержанных источников и результат разрешённого smoke test |
 
-P1–P6 пока не выполнены. Документы draft проходят принятие после рассмотрения владельцем; plan закрывается после проверки всех задач.
+P1 выполнен; P2–P6 пока не выполнены. Документы draft проходят принятие после рассмотрения владельцем; plan закрывается после проверки всех задач.
 
 ## Dependencies
 

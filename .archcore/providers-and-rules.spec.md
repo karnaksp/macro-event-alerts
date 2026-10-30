@@ -12,7 +12,7 @@ tags:
 ## Surface
 
 - `@config.example.yaml`, `@contracts/v1/config.schema.json`: конфигурация и правила.
-- Adapter surface: capabilities, fetch(checkpoint, budget), FetchBatch(raw, observations, next_checkpoint, next_poll_at); runtime-файл ещё отсутствует.
+- Adapter surface: capabilities, fetch(checkpoint, budget), FetchBatch(raw, observations, next_checkpoint, next_poll_at); P1 fixture ingestion: `@src/macro_event_alerts/app.py`; live adapter interface остаётся проектным.
 - Capabilities: actual, forecast, revisions, scenario_probability; forecast origins, транспорт, задержка, авторизация, лимиты и статус проверки.
 - Source-specific mapping: source series → canonical series, timezone, scale, release identity; подтверждается raw fixtures.
 
@@ -28,6 +28,7 @@ tags:
 8. WHEN наступает следующий успешный comparison window, rules engine MUST заново оценить изменение по его опорному снимку.
 9. WHEN провайдер недоступен, scheduler MUST продолжить работу других включённых источников.
 10. WHEN источник требует платный ключ, adapter MUST включаться только явной конфигурацией с ключом.
+11. WHEN свежий scenario snapshot завершает окно без нового перехода, rules engine MUST оценить окно относительно последнего сохранённого change event.
 
 ## Constraints & Invariants
 
@@ -56,5 +57,5 @@ tags:
 
 ## Conformance
 
-Форма конфигурации проверяется `@scripts/validate_contracts.py`; полное соответствие требует capability fixtures, budget tests и runtime-сценариев `@docs/acceptance-cases.md`.
+P1 конфигурация и правила реализованы в `@src/macro_event_alerts/config.py` и `@src/macro_event_alerts/engine.py`; форма проверяется `@scripts/validate_contracts.py`; полное соответствие требует capability fixtures, budget tests и runtime-сценариев `@docs/acceptance-cases.md`.
 Измерение задержки поставщика отделено от времени обработки приложения; отсутствие source timestamp не позволяет заявить измеренный release lag.

@@ -1,0 +1,44 @@
+# Offline P1 demo. All input and output values are synthetic.
+schema_version: '1.0'
+service:
+  state_path: /data/state.db
+  bootstrap_mode: baseline_only
+  locale: ru
+telegram:
+  bot_token_env: TELEGRAM_BOT_TOKEN
+  chat_id_env: TELEGRAM_CHAT_ID
+  message_thread_id_env: TELEGRAM_MESSAGE_THREAD_ID
+  dry_run: true
+providers:
+  fixture:
+    adapter: fixture
+    enabled: true
+    experimental: false
+    poll_interval_seconds: 60
+    daily_request_budget: 100
+    options: {}
+rules:
+  - id: synthetic-macro
+    enabled: true
+    provider_ids: [fixture]
+    event_types: [macro.release, macro.forecast_changed, macro.revised]
+    series_ids: [US.CPI.HEADLINE.YOY]
+    contract_ids: []
+    min_change_pp: null
+    cooldown_seconds: 0
+    comparison_window_seconds: 3600
+    max_observation_age_seconds: 300
+    max_spread_pp: null
+    min_liquidity_usd: null
+  - id: synthetic-scenario
+    enabled: true
+    provider_ids: [fixture]
+    event_types: [scenario.probability_changed]
+    series_ids: []
+    contract_ids: [synthetic-fed-december]
+    min_change_pp: '15'
+    cooldown_seconds: 300
+    comparison_window_seconds: 3600
+    max_observation_age_seconds: 300
+    max_spread_pp: '5'
+    min_liquidity_usd: '10000'
