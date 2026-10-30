@@ -1,5 +1,7 @@
 # Macro Event Alerts
 
+[![Contracts](https://github.com/karnaksp/macro-event-alerts/actions/workflows/contracts.yml/badge.svg)](https://github.com/karnaksp/macro-event-alerts/actions/workflows/contracts.yml)
+
 Самостоятельно размещаемый сервис алертов по макростатистике и рыночным оценкам сценариев в указанный чат Telegram. Open source, Apache 2.0.
 
 **Статус: проектирование и контракты.** В репозитории есть план, схемы данных, синтетические примеры и проверка контрактов. Worker, адаптеры, отправка в Telegram и Docker-образ ещё не реализованы.
@@ -30,6 +32,7 @@ API → адаптер → нормализованное наблюдение �
 - [Контракт адаптеров и правил](.archcore/providers-and-rules.spec.md)
 - [Контракт доставки Telegram](.archcore/telegram-delivery.spec.md)
 - [Этапы реализации и критерии готовности](.archcore/implementation.plan.md)
+- [Backlog: P1–P6 в GitHub Issues](https://github.com/karnaksp/macro-event-alerts/issues?q=is%3Aissue%20is%3Aopen%20sort%3Acreated-asc)
 - [Приёмочные сценарии runtime](docs/acceptance-cases.md)
 - [JSON Schema v1](contracts/v1/) · [примеры событий](examples/events/) · [пример конфигурации](config.example.yaml)
 
