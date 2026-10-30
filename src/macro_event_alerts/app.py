@@ -5,13 +5,14 @@ from contextlib import nullcontext
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Callable, TextIO
 from uuid import uuid4
 
 from .config import load_config
 from .domain import canonical, instant, sha256, subject_key
-from .engine import detect, evaluate_rule
+from .engine import detect, evaluate_rule, release_event
 from .render import render
 from .storage import Store
 from .validation import Contracts, ContractError, get_contracts
@@ -55,6 +56,26 @@ def _subscription(store: Store, rule: dict, config: dict, at: str) -> dict:
     return dict(store.conn.execute("SELECT * FROM subscriptions WHERE subscription_id=?", (identity,)).fetchone())
 
 
+def _new_cbr_inflation_month(store: Store, observation: dict, provider: dict) -> bool:
+    """CBR publishes monthly results without an advance forecast calendar."""
+    subject = observation["subject"]
+    if (provider["adapter"] != "cbr_web" or subject.get("series_id") != "RU.CPI.HEADLINE.YOY"
+            or observation["values"]["actual"] is None):
+        return False
+    period = subject["reference_period"]
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", period) or period > observation["observed_at"][:7]:
+        return False
+    fields = ("country", "currency", "series_id", "frequency", "adjustment", "unit", "scale", "transformation")
+    prior = []
+    for row in store.conn.execute("""SELECT o.body_json FROM subject_state s JOIN observations o
+        ON o.observation_id=s.observation_id WHERE o.provider_id=? AND o.accepted=1""", (observation["source"]["provider_id"],)):
+        item = json.loads(row[0])
+        if (item["subject"]["kind"] == "macro" and all(item["subject"][key] == subject[key] for key in fields)
+                and item["values"]["actual"] is not None):
+            prior.append(item)
+    return bool(prior) and period > max(item["subject"]["reference_period"] for item in prior)
+
+
 def _ingest(store: Store, config: dict, contracts: Contracts, envelope: dict, *, now=None) -> tuple[list[dict], str | None]:
     observation = envelope["observation"]
     contracts.validate(observation, "observation.schema.json")
@@ -86,6 +107,8 @@ def _ingest(store: Store, config: dict, contracts: Contracts, envelope: dict, *,
     version = (state["state_version"] if state else 0) + int(changed)
     original_id = state["original_release_event_id"] if state else None
     events = detect(previous, observation, state_version=version, original_release_event_id=original_id) if changed else []
+    if previous is None and _new_cbr_inflation_month(store, observation, provider):
+        events = [release_event(observation, version)]
     for event in events:
         try:
             contracts.validate(event, "event.schema.json")

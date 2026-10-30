@@ -36,6 +36,8 @@ tags:
 - Scheduler MUST применять timeout и backoff к каждому источнику независимо.
 - Adapter MUST сохранять forecast_origin; одинаковое имя forecast не подтверждает consensus.
 - MQL5 web MUST оставаться experimental и opt-in; MT5 bridge требует отдельного транспорта.
+- MQL5 geography MUST проверяться одновременно по country ID, currency и точному URL path из каталога. EA означает еврозону. Одинаковый slug разных стран не объединяет их серии.
+- CBR web MUST оставаться experimental и opt-in; scheduler MUST резервировать два запроса на его fetch. Отсутствующий прогноз не подменяется consensus или нулём.
 - Rules engine MUST учитывать возраст исходного sample для scenario, а не только observed_at.
 - Rules engine MUST подавлять scenario при неизвестной ликвидности, если min_liquidity_usd задан.
 - Rules engine MUST подавлять midpoint без двух сторон книги либо при spread выше max_spread_pp.
@@ -63,3 +65,4 @@ tags:
 MQL5 listing MAY использовать reference_period=unknown только с vendor release ID; дата релиза не заменяет период статистики.
 MQL5 расширен сериями PPI/Core PPI MoM/YoY, retail MoM/ex-autos MoM, initial jobless claims и ISM manufacturing/services PMI. Claims хранят количество людей, PMI — уровень индекса; процентные изменения не подменяют эти единицы. Source mapping и первичные ссылки находятся в @docs/sources.md, правила — в @config.live.yaml.
 Публичные API проверены реальными read-only fetch; платные и trading endpoints не используются.
+Региональные mappings CN/EA и их подписи находятся в @src/macro_event_alerts/catalog.py; первичные ссылки и ограничения — в @docs/sources.md. Россия использует отдельный @src/macro_event_alerts/cbr.py по официальным страницам ЦБ; прогноз и российские GDP/PMI не выдумываются.

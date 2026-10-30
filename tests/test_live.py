@@ -227,6 +227,22 @@ def test_provider_failure_preserves_baseline_and_checkpoint(tmp_path):
         assert store.stats()["events"] == 0
 
 
+@pytest.mark.parametrize("budget,calls_expected,used_expected", [(1,0,0),(3,1,2)])
+def test_cbr_reserves_both_page_requests_before_fetch_even_on_failure(tmp_path, budget, calls_expected, used_expected):
+    settings = config()
+    settings["providers"]["xoomar"].update(adapter="cbr_web",experimental=True,daily_request_budget=budget)
+    calls = []
+    def failure(*args, **kwargs):
+        calls.append(True)
+        raise RuntimeError("public source unavailable")
+    with Store(tmp_path / "state.db") as store:
+        worker=LiveWorker(settings,store,sender=FakeSender(),clock=lambda:T0,fetcher=failure)
+        worker.tick(T0)
+        worker.tick(T0+timedelta(seconds=61))
+        assert len(calls)==calls_expected
+        assert store.conn.execute("SELECT requests_today FROM provider_state").fetchone()[0]==used_expected
+
+
 def test_daily_budget_survives_restart_and_resets_next_utc_day(tmp_path):
     state = tmp_path / "state.db"
     settings = config()

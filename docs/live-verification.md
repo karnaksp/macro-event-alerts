@@ -4,7 +4,7 @@
 
 ## Выполнено
 
-- `uv run --locked pytest -q`: **196 passed**. Включены fake Telegram, HTML templates/escaping, outcome labels, API mapping fixtures, durable retry/restart, quotas и v1→v2 migration.
+- `uv run --locked pytest -q`: **237 passed**. Включены fake Telegram, HTML templates/escaping, outcome labels, API mapping fixtures, durable retry/restart, quotas и v1→v2 migration.
 - Contract validator: 4 schemas, 6 positive fixtures, 1 config, 23 negative cases — PASS.
 - Одна Alpine-сборка и один offline smoke container: два replay-процесса сохранили те же 7 event IDs, checkpoint и 6 dry-run jobs.
 - `docker compose up --no-build -d alerts`: запущен проверенный image, отдельный live volume.
@@ -22,8 +22,8 @@
 | Версия | Размер Docker image |
 | --- | ---: |
 | P1 Python slim + format extras | 223 313 483 байт |
-| Live Alpine + только нужные зависимости | 86 553 071 байт |
-| Снижение | 61,24% |
+| Live Alpine + только нужные зависимости | 86 588 778 байт |
+| Снижение | 61,23% |
 
 Это локальный uncompressed image size для Linux arm64. Кросс-платформенные musl wheels подтверждены; GitHub CI выполняет свой smoke на Ubuntu runner. Размер compressed registry layers отличается.
 
@@ -47,5 +47,19 @@ Telegram имеет at-least-once semantics: network timeout может дать
 - Одноразовый read-only API запрос MQL5 за 31 день назад/0 вперёд вернул 29 исторических фактов по 21 серии. Единственный запрос предварительно учтён в существующем daily budget. Импорт выполнен в остановленном worker с существующим volume, без Telegram credentials, через _ingest(is_backfill=true).
 - Проверены инварианты импорта: live subject_state, events, outbox, subscriptions и polling checkpoints не изменились; после импорта worker запущен снова. Ручная сводка читает latest backfill отдельно от live baseline.
 - В момент проверки в базе были все 23 поддерживаемые макросерии, по 22 — опубликованные факты; все 9 новых рядов присутствовали. Quarantine=0, live health healthy=true.
-- Сводка доставлена в 3 частях: message2505 обновлён, message2538/2539 отправлены с паузой 3 секунды. API подтвердил delivered, HTML entities и отключённые previews для каждой части. Длины в момент проверки: 3764/2550/3590 UTF-16 units, каждая меньше4096.
+- Сводка доставлена в 3 частях: message2505 обновлён, message2538/2539 отправлены с паузой 3 секунды. API подтвердил delivered, HTML entities и отключённые previews для каждой части. Длины в момент проверки: 3764/2550/3590 UTF-16 units, каждая меньше 4096.
 - Новые tests проверяют отображение более3рядов, отдельный будущий forecast без потери прошлого actual, нулевые значения, исключение cancelled, целые HTML-блоки/пагинацию, latest backfill без изменений baseline, остановку ручной отправки при ошибке, PMI в пунктах и claims в людях.
+
+
+## Китай, Россия и еврозона
+
+Проверено 30 октября 2026:
+
+- Каталог содержит 10 CN и 14 EA серий по первичным MQL5-страницам. Для RU добавлены ключевая ставка и CPI y/y по официальным страницам ЦБ. Число mappings не выдаётся за доступность факта: CN GDP/безработица и 3 EA PMI сейчас отсутствуют в полученном календаре.
+- Два публичных запроса MQL5 (история 31 день и обычное окно 2/14) вернули 93 наблюдения:22 US, 7 CN, 11 EA уникальных рядов. Они импортированы как backfill с проверкой неизменности live baseline/events/outbox/checkpoints.
+- CBR HTTPS в Docker с обычной проверкой сертификатов вернул 3 валидных наблюдения: текущая ставка, явно датированное следующее заседание, последний месяц CPI. Два ряда RU реально присутствуют. Запросы предварительно учтены; источник initialized=1/error=null после нормального polling.
+- Все 4 источника initialized=1/error=null, quarantine 0, health healthy=true. Нет dependency/CA overrides или отключения проверки сертификатов.
+- Полная ручная сводка содержит 9 страниц с отдельной нумерацией регионов. Новые 6 страниц доставлены без повторной отправки США:2562/2563 Китай,2564/2565 Россия,2566/2567 еврозона. Каждый API-ответ подтвердил delivered и отключённые previews. Длины всех страниц: 3766/2552/3592/1912/1349/603/436/3061/1936 UTF-16 units, все меньше 4096.
+- Новые tests покрывают географию/валюты, общие slug, обычный GDP CN/EA против annualized US, NBS PMI, разные ставки ЕЦБ, изоляцию стран в сводке, CBR parser/timezone, резервирование двух запросов и новый CPI-месяц после live baseline. Полный набор 237 tests и контрактная проверка PASS; финальный image прошёл offline restart smoke.
+
+CBR source_updated_at без явного offset/Z не нормализуется по часам будущего заседания: это разные поля. Исторический footer сохраняется в raw; newest observations используют консервативное неизвестное время. Консенсус, российские GDP/PMI и числовые N/D не синтезируются.

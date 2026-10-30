@@ -49,3 +49,42 @@ Forecast origin хранится как `consensus`, `model`, `official_projecti
 | ISM Non-Manufacturing PMI | [Услуги](https://www.mql5.com/en/economic-calendar/united-states/ism-non-manufacturing-pmi) | Уровень индекса, ежемесячно |
 
 Для всех новых рядов включены release/revision и forecast-change правила MQL5. Synthetic fixtures проверяют mapping и единицы; текущий календарь может содержать не все последние факты одновременно. Исторические наблюдения сохраняются с is_backfill=true без изменения live baseline и очереди, но доступны ручной сводке. Неизвестные периоды MQL5 не восстанавливаются по дате релиза.
+
+
+## Китай, еврозона и Россия
+
+Проверено 30 октября 2026. MQL5 country156/CNY относится к [Китаю](https://www.mql5.com/en/economic-calendar/china); country999/EUR использует путь european-union, но описания выбранных рядов относятся к еврозоне. [CalendarEventByCurrency](https://www.mql5.com/en/docs/calendar/calendareventbycurrency) подтверждает source country999. Канонический country EA обозначает агрегат еврозоны.
+
+| Регион / canonical series | Первичная страница | Единицы / ограничение |
+| --- | --- | --- |
+| CN.CPI.HEADLINE.MOM | [cpi-mm](https://www.mql5.com/en/economic-calendar/china/cpi-mm) | % |
+| CN.CPI.HEADLINE.YOY | [cpi-yy](https://www.mql5.com/en/economic-calendar/china/cpi-yy) | % |
+| CN.PPI.HEADLINE.YOY | [ppi-yy](https://www.mql5.com/en/economic-calendar/china/ppi-yy) | % |
+| CN.GDP.QOQ | [gdp-qq](https://www.mql5.com/en/economic-calendar/china/gdp-qq) | %; без annualization |
+| CN.GDP.YOY | [gdp-yy](https://www.mql5.com/en/economic-calendar/china/gdp-yy) | %; без annualization |
+| CN.NBS.MANUFACTURING.PMI | [manufacturing-pmi](https://www.mql5.com/en/economic-calendar/china/manufacturing-pmi) | уровень индекса; NBS, не Caixin |
+| CN.NBS.NON_MANUFACTURING.PMI | [non-manufacturing-pmi](https://www.mql5.com/en/economic-calendar/china/non-manufacturing-pmi) | уровень индекса; NBS, не Caixin |
+| CN.INDUSTRIAL.PRODUCTION.YOY | [industrial-production-yy](https://www.mql5.com/en/economic-calendar/china/industrial-production-yy) | % |
+| CN.RETAIL.HEADLINE.YOY | [retail-sales-yy](https://www.mql5.com/en/economic-calendar/china/retail-sales-yy) | % |
+| CN.UNEMPLOYMENT.RATE | [unemployment-rate](https://www.mql5.com/en/economic-calendar/china/unemployment-rate) | % |
+| EA.HICP.HEADLINE.MOM | [consumer-price-index-mm](https://www.mql5.com/en/economic-calendar/european-union/consumer-price-index-mm) | % |
+| EA.HICP.HEADLINE.YOY | [consumer-price-index-yy](https://www.mql5.com/en/economic-calendar/european-union/consumer-price-index-yy) | % |
+| EA.HICP.CORE.MOM | [consumer-price-index-ex-food-energy-mm](https://www.mql5.com/en/economic-calendar/european-union/consumer-price-index-ex-food-energy-mm) | % |
+| EA.HICP.CORE.YOY | [consumer-price-index-ex-food-energy-yy](https://www.mql5.com/en/economic-calendar/european-union/consumer-price-index-ex-food-energy-yy) | % |
+| EA.GDP.QOQ | [gross-domestic-product-qq](https://www.mql5.com/en/economic-calendar/european-union/gross-domestic-product-qq) | %; без annualization |
+| EA.GDP.YOY | [gross-domestic-product-yy](https://www.mql5.com/en/economic-calendar/european-union/gross-domestic-product-yy) | %; без annualization |
+| EA.UNEMPLOYMENT.RATE | [unemployment-rate](https://www.mql5.com/en/economic-calendar/european-union/unemployment-rate) | % |
+| EA.RETAIL.HEADLINE.MOM | [retail-sales-mm](https://www.mql5.com/en/economic-calendar/european-union/retail-sales-mm) | % |
+| EA.INDUSTRIAL.PRODUCTION.MOM | [industrial-production-mm](https://www.mql5.com/en/economic-calendar/european-union/industrial-production-mm) | % |
+| EA.ECB.DEPOSIT.RATE | [ecb-deposit-rate-decision](https://www.mql5.com/en/economic-calendar/european-union/ecb-deposit-rate-decision) | % |
+| EA.ECB.MAIN_REFINANCING.RATE | [ecb-interest-rate-decision](https://www.mql5.com/en/economic-calendar/european-union/ecb-interest-rate-decision) | % |
+| EA.SP_GLOBAL.MANUFACTURING.PMI | [markit-manufacturing-pmi](https://www.mql5.com/en/economic-calendar/european-union/markit-manufacturing-pmi) | уровень индекса; текущая страница N/D, стадию flash/final не угадываем |
+| EA.SP_GLOBAL.SERVICES.PMI | [markit-services-pmi](https://www.mql5.com/en/economic-calendar/european-union/markit-services-pmi) | уровень индекса; текущая страница N/D, стадию flash/final не угадываем |
+| EA.SP_GLOBAL.COMPOSITE.PMI | [markit-composite-pmi](https://www.mql5.com/en/economic-calendar/european-union/markit-composite-pmi) | уровень индекса; текущая страница N/D, стадию flash/final не угадываем |
+
+[Россия не представлена в текущем списке MQL5](https://www.mql5.com/en/economic-calendar); ссылки russia/russian-federation возвращали404, RUB отсутствует в фильтре. Поэтому используются официальные источники:
+
+- [Решение Банка России](https://www.cbr.ru/press/keypr/): RU.CBR.KEY_RATE, точная дата решения и явно указанное следующее заседание/время13:30МСК. Timestamp обновления с явным timezone хранится как source_updated_at; timezone-naive footer остаётся неизвестным, дата обновления не считается доказанным временем публикации.
+- [Инфляция и ключевая ставка](https://www.cbr.ru/hd_base/infl/): RU.CPI.HEADLINE.YOY, месячный отчётный период MM.YYYY, колонка инфляции y/y. Ставка на конец месяца из соседней колонки не используется как текущее решение.
+
+CBR adapter не предоставляет forecast. В live выдаётся только последний месяц CPI, текущее решение и подтверждённое будущее заседание. Новый месяц CPI после существующего live baseline создаёт release; первая загрузка и backfill остаются тихими. GDP, рынок труда и производство России этим адаптером не покрыты; неподтверждённые mappings не добавлены.

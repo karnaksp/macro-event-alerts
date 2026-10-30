@@ -17,6 +17,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import uuid4
 
 from .domain import decimal_text, instant, sha256, utc
+from .catalog import MQL5_REGIONS
 
 
 @dataclass
@@ -27,31 +28,7 @@ class FetchBatch:
 
 # Exact source slugs keep headline/core, MoM/YoY and rate conventions separate.
 # GDP's annualized basis corroborated with the BEA 2026-Q3 release, 2026-10-30.
-MQL5_SERIES = {
-    "consumer-price-index-mm": ("US.CPI.HEADLINE.MOM", "monthly", "percent"),
-    "consumer-price-index-yy": ("US.CPI.HEADLINE.YOY", "monthly", "percent"),
-    "consumer-price-index-ex-food-energy-mm": ("US.CPI.CORE.MOM", "monthly", "percent"),
-    "consumer-price-index-ex-food-energy-yy": ("US.CPI.CORE.YOY", "monthly", "percent"),
-    "pce-price-index-mm": ("US.PCE.HEADLINE.MOM", "monthly", "percent"),
-    "pce-price-index-yy": ("US.PCE.HEADLINE.YOY", "monthly", "percent"),
-    "core-pce-price-index-mm": ("US.PCE.CORE.MOM", "monthly", "percent"),
-    "core-pce-price-index-yy": ("US.PCE.CORE.YOY", "monthly", "percent"),
-    "producer-price-index-mm": ("US.PPI.HEADLINE.MOM", "monthly", "percent"),
-    "producer-price-index-yy": ("US.PPI.HEADLINE.YOY", "monthly", "percent"),
-    "producer-price-index-ex-food-energy-mm": ("US.PPI.CORE.MOM", "monthly", "percent"),
-    "producer-price-index-ex-food-energy-yy": ("US.PPI.CORE.YOY", "monthly", "percent"),
-    "retail-sales-mm": ("US.RETAIL.HEADLINE.MOM", "monthly", "percent"),
-    "retail-sales-ex-autos-mm": ("US.RETAIL.EX_AUTOS.MOM", "monthly", "percent"),
-    "nonfarm-payrolls": ("US.NFP.CHANGE", "monthly", "persons"),
-    "unemployment-rate": ("US.UNEMPLOYMENT.RATE", "monthly", "percent"),
-    "initial-jobless-claims": ("US.JOBLESS.INITIAL.CLAIMS", "weekly", "persons"),
-    "ism-manufacturing-pmi": ("US.ISM.MANUFACTURING.PMI", "monthly", "index"),
-    "ism-non-manufacturing-pmi": ("US.ISM.SERVICES.PMI", "monthly", "index"),
-    "gross-domestic-product-qq": ("US.GDP.QOQ.ANNUALIZED", "quarterly", "percent"),
-    "employment-cost-index-qq": ("US.ECI.QOQ", "quarterly", "percent"),
-    # This source reports the upper bound; XOOMAR explicitly reports midpoint.
-    "fed-interest-rate-decision": ("US.FED.TARGET.UPPER", "meeting", "percent"),
-}
+MQL5_SERIES = MQL5_REGIONS["US"]["series"]
 
 
 def capabilities(adapter: str) -> set[str]:
@@ -59,7 +36,7 @@ def capabilities(adapter: str) -> set[str]:
         return {"macro.release", "macro.forecast_changed", "macro.revised"} | (
             {"scenario.probability_changed"} if adapter == "fixture" else set()
         )
-    if adapter == "xoomar":
+    if adapter in {"xoomar", "cbr_web"}:
         return {"macro.release", "macro.revised"}
     return set()
 
@@ -119,13 +96,14 @@ def _number(value, unit: str, *, suffixed: bool = False) -> str | None:
 
 def _envelope(provider_id: str, raw: dict, *, now: datetime, record_id: str, source_url: str,
               series: tuple[str, str, str], reference_period: str, scheduled_at: datetime,
-              actual: str | None, forecast: str | None, previous: str | None, scale: str = "units") -> dict:
+              actual: str | None, forecast: str | None, previous: str | None, scale: str = "units",
+              country: str = "US", currency: str = "USD") -> dict:
     observation = {
         "schema_version": "1.0", "observation_id": str(uuid4()), "observed_at": utc(now),
         "source": {"provider_id": provider_id, "source_record_id": record_id, "source_revision": None,
                    "source_url": source_url, "source_updated_at": None, "declared_delay_seconds": None},
         "raw_sha256": sha256(raw), "is_backfill": False,
-        "subject": {"kind": "macro", "country": "US", "currency": "USD", "series_id": series[0],
+        "subject": {"kind": "macro", "country": country, "currency": currency, "series_id": series[0],
                     "label": str(raw.get("EventName", raw.get("eventName", series[0]))),
                     "release_key": record_id, "reference_period": reference_period,
                     "frequency": series[1], "adjustment": "unknown", "unit": series[2],
@@ -141,7 +119,14 @@ def _envelope(provider_id: str, raw: dict, *, now: datetime, record_id: str, sou
 def _mql5(provider_id: str, settings: dict, now: datetime) -> FetchBatch:
     if not settings.get("experimental"):
         raise ValueError("mql5_web requires experimental=true")
-    start, end = _window(settings.get("options", {}), now)
+    options = settings.get("options", {})
+    countries = options.get("countries", ["US"])
+    if (not isinstance(countries, list) or not countries
+            or any(not isinstance(code, str) or code not in MQL5_REGIONS for code in countries)
+            or len(set(countries)) != len(countries)):
+        raise ValueError("unsupported or duplicate MQL5 countries")
+    paths = {MQL5_REGIONS[code]["path"]: (code, MQL5_REGIONS[code]) for code in countries}
+    start, end = _window(options, now)
     form = urlencode({"date_mode": 1, "from": start.strftime("%Y-%m-%dT%H:%M:%S"),
                       "to": (end - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S"),
                       "importance": 15, "currencies": 131071}).encode()
@@ -154,13 +139,18 @@ def _mql5(provider_id: str, settings: dict, now: datetime) -> FetchBatch:
         raise RuntimeError("MQL5 calendar response must be an array")
     result = []
     for row in data:
-        if not isinstance(row, dict) or row.get("CurrencyCode") != "USD" or row.get("Country") != 840:
+        if not isinstance(row, dict):
             continue
         path = row.get("Url", "")
         if not isinstance(path, str) or not isinstance(row.get("EventName"), str):
             continue
-        slug = path.removeprefix("/en/economic-calendar/united-states/")
-        if slug not in MQL5_SERIES or path != "/en/economic-calendar/united-states/" + slug:
+        parts = path.split("/")
+        if len(parts) != 5 or parts[:3] != ["", "en", "economic-calendar"] or parts[3] not in paths:
+            continue
+        country, region = paths[parts[3]]
+        slug = parts[4]
+        if (slug not in region["series"] or row.get("Country") != region["source_country_id"]
+                or row.get("CurrencyCode") != region["currency"]):
             continue
         try:
             if row.get("TimeMode") != 0 or type(row.get("Id")) is not int or row["Id"] < 1:
@@ -171,7 +161,7 @@ def _mql5(provider_id: str, settings: dict, now: datetime) -> FetchBatch:
             epoch = datetime.fromtimestamp(row["ReleaseDate"] / 1000, timezone.utc)
             if abs((scheduled - epoch).total_seconds()) > 1 or not start <= scheduled < end:
                 continue
-            series = MQL5_SERIES[slug]
+            series = region["series"][slug]
             actual = _number(row.get("ActualValue"), series[2], suffixed=True)
             forecast = _number(row.get("ForecastValue"), series[2], suffixed=True)
             previous = _number(row.get("PreviousValue"), series[2], suffixed=True)
@@ -181,7 +171,8 @@ def _mql5(provider_id: str, settings: dict, now: datetime) -> FetchBatch:
                 continue  # A released-but-missing actual cannot become a pre-release forecast update.
             result.append(_envelope(provider_id, row, now=now, record_id=f"mql5:{row['Id']}",
                 source_url="https://www.mql5.com" + path, series=series, reference_period="unknown",
-                scheduled_at=scheduled, actual=actual, forecast=forecast, previous=previous))
+                scheduled_at=scheduled, actual=actual, forecast=forecast, previous=previous,
+                country=country, currency=region["currency"]))
         except (KeyError, TypeError, ValueError, OverflowError):
             continue
     return FetchBatch(result)
@@ -276,4 +267,7 @@ def fetch(provider_id: str, settings: dict, *, now: datetime, checkpoint: dict |
         return _mql5(provider_id, settings, now)
     if adapter == "xoomar":
         return _xoomar(provider_id, settings, now, checkpoint)
+    if adapter == "cbr_web":
+        from .cbr import fetch as fetch_cbr
+        return fetch_cbr(provider_id, settings, now=now, checkpoint=checkpoint)
     raise ValueError("unsupported live macro adapter")
